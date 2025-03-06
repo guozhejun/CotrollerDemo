@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="devexpress.wpf.grid.core" Version="24.2.5" />
+    <PackageReference Include="devexpress.wpf.layoutcontrol" Version="24.2.5" />
+    <PackageReference Include="Prism.DryIoc" Version="9.0.537" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Arction.Wpf.Charting.LightningChart">
+      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.Charting.LightningChart.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
