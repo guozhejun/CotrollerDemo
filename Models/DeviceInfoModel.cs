@@ -12,6 +12,6 @@ namespace CotrollerDemo.Models
 
         public string Mask { get; set; }
 
-        public bool Status { get; set; }
+        public string Status { get; set; }
     }
 }

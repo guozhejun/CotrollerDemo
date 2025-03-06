@@ -89,8 +89,8 @@ namespace CotrollerDemo.Views
 
         private void canvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            _chart.Width = lightingChartItem.ActualWidth;
-            _chart.Height = lightingChartItem.ActualHeight;
+            _chart.Width = canvasBase.ActualWidth;
+            _chart.Height = canvasBase.ActualHeight;
         }
     }
 }

@@ -11,7 +11,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
     d:DesignHeight="600"
-    d:DesignWidth="800"
+    d:DesignWidth="860"
     mc:Ignorable="d">
     <UserControl.Resources>
         <Style TargetType="{x:Type dxg:GridColumn}">
@@ -24,25 +24,28 @@
         AnimateScrolling="False"
         DragScrolling="False"
         Orientation="Horizontal">
-        <dxlc:LayoutItem HorizontalAlignment="Left">
-            <dx:ScrollViewerBase
-                Name="PART_Options"
+        <dxlc:LayoutItem
+            HorizontalAlignment="Left"
+            Label="文件列表"
+            LabelPosition="Top">
+            <dxe:ListBoxEdit
+                Width="210"
+                Height="500"
+                HorizontalAlignment="Left"
                 dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
-                Focusable="False"
-                HorizontalScrollBarVisibility="Disabled"
-                VerticalScrollBarVisibility="Auto">
-                <dxe:ListBoxEdit MinWidth="200" MinHeight="300" />
-            </dx:ScrollViewerBase>
+                ItemsSource="{Binding FileNames}" />
         </dxlc:LayoutItem>
-        <dxlc:LayoutGroup Orientation="Vertical">
+        <dxlc:LayoutGroup Margin="15,0,0,0" Orientation="Vertical">
             <dxlc:LayoutGroup
-                HorizontalAlignment="Right"
+                HorizontalAlignment="Left"
                 VerticalAlignment="Top"
                 Orientation="Vertical">
                 <dxlc:LayoutItem>
                     <dxg:GridControl
-                        Width="523"
-                        Height="187"
+                        x:Name="gridControl"
+                        Width="525"
+                        Height="128"
+                        dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
                         ItemsSource="{Binding Devices}">
                         <dxg:GridControl.Columns>
                             <dxg:GridColumn FieldName="IpAddress" />
@@ -62,35 +65,68 @@
                         </dxg:GridControl.View>
                     </dxg:GridControl>
                 </dxlc:LayoutItem>
-                <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Horizontal">
+                <dxlc:LayoutGroup
+                    Margin="0,5"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
                     <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="设备查询" />
+                        <dx:SimpleButton
+                            Height="30"
+                            Margin="5,0"
+                            Content="设备查询" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="连接" />
+                        <dx:SimpleButton
+                            Height="30"
+                            Margin="5,0"
+                            Command="{Binding LinkCommand}"
+                            CommandParameter="{Binding ElementName=gridControl, Path=SelectedItem}"
+                            Content="连接" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="断开" />
+                        <dx:SimpleButton
+                            Height="30"
+                            Margin="5,0"
+                            Content="断开" />
                     </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
 
-            <dxlc:LayoutGroup Margin="35,0,0,0" Orientation="Vertical">
+            <dxlc:LayoutGroup Orientation="Vertical">
                 <dxlc:LayoutItem
                     x:Name="lightingChartItem"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
-                    <Canvas Name="canvasBase" SizeChanged="canvasBase_SizeChanged" />
+                    <Canvas
+                        Name="canvasBase"
+                        Width="525"
+                        Margin="0,0,5,0"
+                        SizeChanged="canvasBase_SizeChanged" />
                 </dxlc:LayoutItem>
-                <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Horizontal">
-                    <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
+                <dxlc:LayoutGroup
+                    Margin="0,5"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
                         <dx:SimpleButton Height="30" Content="试验开始" />
                     </dxlc:LayoutItem>
-                    <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
                         <dx:SimpleButton Height="30" Content="试验停止" />
                     </dxlc:LayoutItem>
-                    <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="保存数据" />
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
+                        <dx:SimpleButton
+                            Height="30"
+                            Command="{Binding SaveDataCommand}"
+                            Content="保存数据" />
                     </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
