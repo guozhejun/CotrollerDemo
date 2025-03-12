@@ -1,9 +1,14 @@
 ﻿using Arction.Wpf.Charting;
+using Arction.Wpf.Charting.Annotations;
 using Arction.Wpf.Charting.Axes;
 using Arction.Wpf.Charting.SeriesXY;
+using CotrollerDemo.Models;
+using CotrollerDemo.ViewModels;
 using DevExpress.Xpf.Core.ConditionalFormattingManager;
+using DevExpress.Xpf.Editors;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,71 +31,90 @@ namespace CotrollerDemo.Views
     {
         public ControllerView()
         {
+
             InitializeComponent();
-            CreateChart();
+            GlobalValues.UdpClient = new UdpClientModel("192.168.1.37");
+            GlobalValues.TcpClient = new TcpClientModel("192.168.1.37");
+
         }
 
-
-        private void CreateChart()
+        public ControllerViewModel Controller;
+       
+        private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            _chart = new LightningChart();
+            ControllerViewModel.chart.Width = CanvasBase.ActualWidth;
+            ControllerViewModel.chart.Height = CanvasBase.ActualHeight;
+        }
 
-            _chart.BeginUpdate();
-
-            //隐藏图例框
-            _chart.ViewXY.LegendBoxes[0].Visible = false;
-
-            _chart.Title.Visible = false;
-
-            // 设置X轴
-            AxisX axisX = _chart.ViewXY.XAxes[0];
-            axisX.SetRange(0, 20);
-            axisX.ScrollMode = XAxisScrollMode.Scrolling;
-            axisX.Title.Visible = false;
-            axisX.AutoDivSpacing = false;
-            axisX.MajorDiv = 2;
-            axisX.ValueType = AxisValueType.Number;
-            axisX.LabelsNumberFormat = "0";
-
-            // 设置Y轴
-            AxisY axisY = _chart.ViewXY.YAxes[0];
-            axisY.SetRange(0, 100);
-            axisY.LabelsNumberFormat = "0";
-            axisY.AutoFormatLabels = false;
-
-            // 生成随机数据
-            Random random = new Random();
-            const double interval = 1;
-            int pointsCount = (int)((axisX.Maximum - axisX.Minimum) / interval) + 1;
-
-            SeriesPoint[] points = new SeriesPoint[pointsCount];
-            for (int pointIndex = 0; pointIndex < pointsCount; pointIndex++)
+        private void ListBoxEdit_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                points[pointIndex].X = pointIndex;
-                points[pointIndex].Y = 100.0 * random.NextDouble();
+                if (sender is ListBoxEdit listBoxEdit && listBoxEdit.SelectedItem != null)
+                    DragDrop.DoDragDrop(listBoxEdit, listBoxEdit.SelectedItem, DragDropEffects.Copy);
             }
-
-            // 添加点到线
-            PointLineSeries pointLineSeries = new PointLineSeries(_chart.ViewXY, axisX, _chart.ViewXY.YAxes[0])
-            {
-                PointsVisible = true,
-                Points = points,
-            };
-
-            _chart.ViewXY.PointLineSeries.Add(pointLineSeries);
-
-
-            _chart.EndUpdate();
-
-            canvasBase.Children.Add(_chart);
         }
 
-        private LightningChart _chart;
-
-        private void canvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void LightingChartItem_Drop(object sender, DragEventArgs e)
         {
-            _chart.Width = canvasBase.ActualWidth;
-            _chart.Height = canvasBase.ActualHeight;
+            if (e.Data.GetDataPresent(DataFormats.StringFormat))
+            {
+                string data = e.Data.GetData(DataFormats.StringFormat) as string;
+
+                string filePath = System.IO.Path.Combine("D:\\Coding\\Datas", data);
+
+                if (File.Exists(filePath))
+                {
+                    // 读取文件的所有行并存储到数组中
+                    string[] lines = File.ReadAllLines(filePath);
+                    string[][] datas = new string[lines.Length][];
+
+                    for (int i = 0; i < lines.Length; i++)
+                    {
+                        datas[i] = lines[i].Split(['-'], StringSplitOptions.RemoveEmptyEntries);
+                    }
+
+                    if (data != null)
+                    {
+                        ControllerViewModel.chart.BeginUpdate();
+
+                        // 创建新的Y轴
+                        var yAxis = new AxisY(ControllerViewModel.view);
+                        yAxis.Title.Visible = false;
+                        yAxis.Units.Visible = false;
+                        yAxis.AllowScaling = false;
+                        yAxis.MajorGrid.Visible = false;
+                        yAxis.MinorGrid.Visible = false;
+                        yAxis.MajorGrid.Pattern = LinePattern.Solid;
+                        yAxis.AutoDivSeparationPercent = 0;
+                        yAxis.Visible = true;
+                        yAxis.MajorDivTickStyle.Alignment = Alignment.Near;
+                        yAxis.SetRange(0, 100); // 设置Y轴范围
+                        ControllerViewModel.view.YAxes.Add(yAxis);
+
+
+                        PointLineSeries series = new(ControllerViewModel.view, ControllerViewModel.view.XAxes[0], yAxis)
+                        {
+                            Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
+                  
+                            LineStyle = { Color = ChartTools.CalcGradient(ControllerViewModel.GenerateUniqueColor(), Colors.White, 50) },
+                            Points = new SeriesPoint[datas.Length]
+                        };
+
+                        for (int pointIndex = 0; pointIndex < datas.Length; pointIndex++)
+                        {
+                            series.Points[pointIndex].X = Convert.ToDouble(datas[pointIndex][0]);
+                            series.Points[pointIndex].Y = Convert.ToDouble(datas[pointIndex][1]);
+                        }
+
+                        ControllerViewModel.view.PointLineSeries.Add(series);
+
+                        ControllerViewModel.chart.EndUpdate();
+                    }
+                }
+
+            }
         }
+
     }
 }

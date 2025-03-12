@@ -8,7 +8,7 @@
     Height="600"
     prism:ViewModelLocator.AutoWireViewModel="True"
     WindowStartupLocation="CenterScreen"
-    WindowState="Normal">
+    WindowState="Maximized">
     <Grid>
         <ContentControl prism:RegionManager.RegionName="ContentRegion" />
     </Grid>

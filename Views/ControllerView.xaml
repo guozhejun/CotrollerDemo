@@ -29,28 +29,30 @@
             Label="文件列表"
             LabelPosition="Top">
             <dxe:ListBoxEdit
-                Width="210"
-                Height="500"
+                MinWidth="210"
+                MinHeight="330"
+                MaxHeight="925"
                 HorizontalAlignment="Left"
+                VerticalAlignment="Stretch"
                 dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
-                ItemsSource="{Binding FileNames}" />
+                ItemsSource="{Binding FileNames}"
+                PreviewMouseMove="ListBoxEdit_PreviewMouseMove" />
         </dxlc:LayoutItem>
         <dxlc:LayoutGroup Margin="15,0,0,0" Orientation="Vertical">
             <dxlc:LayoutGroup
-                HorizontalAlignment="Left"
+                HorizontalAlignment="Stretch"
                 VerticalAlignment="Top"
                 Orientation="Vertical">
                 <dxlc:LayoutItem>
                     <dxg:GridControl
                         x:Name="gridControl"
-                        Width="525"
                         Height="128"
                         dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
                         ItemsSource="{Binding Devices}">
                         <dxg:GridControl.Columns>
-                            <dxg:GridColumn FieldName="IpAddress" />
-                            <dxg:GridColumn FieldName="Mask" />
-                            <dxg:GridColumn FieldName="Status" />
+                            <dxg:GridColumn Binding="{Binding IpAddress}" FieldName="设备IP" />
+                            <dxg:GridColumn Binding="{Binding SerialNum}" FieldName="设备序列号" />
+                            <dxg:GridColumn Binding="{Binding Status}" FieldName="状态" />
                         </dxg:GridControl.Columns>
                         <dxg:GridControl.View>
                             <dxg:TableView
@@ -79,7 +81,7 @@
                         <dx:SimpleButton
                             Height="30"
                             Margin="5,0"
-                            Command="{Binding LinkCommand}"
+                            Command="{Binding ConnectCommand}"
                             CommandParameter="{Binding ElementName=gridControl, Path=SelectedItem}"
                             Content="连接" />
                     </dxlc:LayoutItem>
@@ -87,6 +89,8 @@
                         <dx:SimpleButton
                             Height="30"
                             Margin="5,0"
+                            Command="{Binding DisconnectCommand}"
+                            CommandParameter="{Binding ElementName=gridControl, Path=SelectedItem}"
                             Content="断开" />
                     </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
@@ -94,14 +98,17 @@
 
             <dxlc:LayoutGroup Orientation="Vertical">
                 <dxlc:LayoutItem
-                    x:Name="lightingChartItem"
+                    x:Name="LightingChartItem"
                     HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch">
-                    <Canvas
-                        Name="canvasBase"
-                        Width="525"
+                    VerticalAlignment="Stretch"
+                    AllowDrop="True"
+                    Drop="LightingChartItem_Drop">
+                    <ContentControl
+                        Name="CanvasBase"
+                        MinWidth="525"
                         Margin="0,0,5,0"
-                        SizeChanged="canvasBase_SizeChanged" />
+                        Content="{Binding ChartContent}"
+                        SizeChanged="CanvasBase_SizeChanged" />
                 </dxlc:LayoutItem>
                 <dxlc:LayoutGroup
                     Margin="0,5"
@@ -111,13 +118,19 @@
                         Margin="5,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="试验开始" />
+                        <dx:SimpleButton
+                            Height="30"
+                            Command="{Binding StartTestCommand}"
+                            Content="试验开始" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem
                         Margin="5,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top">
-                        <dx:SimpleButton Height="30" Content="试验停止" />
+                        <dx:SimpleButton
+                            Height="30"
+                            Command="{Binding StopTestCommand}"
+                            Content="试验停止" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem
                         Margin="5,0"
