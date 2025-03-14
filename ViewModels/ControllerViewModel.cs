@@ -17,6 +17,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -104,6 +105,7 @@ namespace CotrollerDemo.ViewModels
             ChartContent = _chart;
 
             UpdateDeviceList();
+            GlobalValues.TcpClient.StartTcpListen("192.168.1.37");
 
             StartTestCommand = new DelegateCommand(StartChart, CanStartChart).ObservesProperty(() => IsRunning);
             StopTestCommand = new DelegateCommand(StopTest, CanStopChart).ObservesProperty(() => IsRunning);
@@ -114,13 +116,14 @@ namespace CotrollerDemo.ViewModels
             GetFolderFiles();
         }
 
-
         /// <summary>
         /// 创建图表
         /// </summary>
         private void CreateChart()
         {
             _chart.BeginUpdate();
+
+            _chart.Title.Visible = false;
 
             ///只允许水平平移和鼠标滚轮缩放
             _chart.ViewXY.ZoomPanOptions.PanDirection = PanDirection.Horizontal;
@@ -194,8 +197,24 @@ namespace CotrollerDemo.ViewModels
                 {
                     Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = $"Curve {i + 1}" }, // 设置曲线标题
                     ScrollModePointsKeepLevel = 1,
-                    AllowUserInteraction = false,
+                    AllowUserInteraction = true,
                     LineStyle = { Color = ChartTools.CalcGradient(lineBaseColor, Colors.White, 50) }
+                };
+
+                series.MouseDoubleClick += (s, e) =>
+                {
+                    var TemporarySeries = s as PointLineSeries;
+
+                    var title = TemporarySeries.Title.Text.Split(':');
+
+                    DialogResult result = (DialogResult)DXMessageBox.Show($"是否删除{title[0]}曲线?", "提示", MessageBoxButton.YesNo);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        _chart.ViewXY.PointLineSeries.Remove(series);
+                        _chart.ViewXY.YAxes.Remove(yAxis);
+                        UpdateCursorResult();
+                    }
                 };
 
                 view.PointLineSeries.Add(series);
@@ -207,7 +226,7 @@ namespace CotrollerDemo.ViewModels
                 }
 
             }
-            //Add an annotation to show the cursor values
+            //添加注释以显示游标值
             AnnotationXY cursorValueDisplay = new(_chart.ViewXY, _chart.ViewXY.XAxes[0], _chart.ViewXY.YAxes[0])
             {
                 Style = AnnotationStyle.RoundedCallout,
@@ -225,11 +244,12 @@ namespace CotrollerDemo.ViewModels
             cursorValueDisplay.Visible = false;
             _chart.ViewXY.Annotations.Add(cursorValueDisplay);
 
-            //Add cursor
+            //添加光标
             LineSeriesCursor cursor = new(_chart.ViewXY, _chart.ViewXY.XAxes[0]);
             _chart.ViewXY.LineSeriesCursors.Add(cursor);
             cursor.PositionChanged += cursor_PositionChanged;
             cursor.ValueAtXAxis = 10;
+            cursor.Visible = false;
             cursor.LineStyle.Color = Color.FromArgb(150, 255, 0, 0);
             cursor.SnapToPoints = true;
             cursor.TrackPoint.Color1 = Colors.White;
@@ -286,17 +306,20 @@ namespace CotrollerDemo.ViewModels
         /// <param name="obj"></param>
         private void ConnectDevice(object obj)
         {
-            var selectItem = obj as DeviceInfoModel;
+            Task.Run(async () =>
+            {
+                var selectItem = obj as DeviceInfoModel;
 
-            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
+                var linkIP = Devices.First(d => d.IpAddress == selectItem.IpAddress);
 
-            GlobalValues.TcpClient.tcp.Start();
+                if (IsTcpListenerClosed(GlobalValues.TcpClient.Tcp))
+                {
+                    GlobalValues.TcpClient.Tcp.Start();
+                }
 
-            Devices.Clear();
+                Devices = await GlobalValues.UdpClient.IsConnectDevice(linkIP.IpAddress, true);
+            });
 
-            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, true);
-
-            UpdateDeviceList();
         }
 
         /// <summary>
@@ -305,19 +328,25 @@ namespace CotrollerDemo.ViewModels
         /// <param name="obj"></param>
         private void DisconnectDevice(object obj)
         {
-            var selectItem = obj as DeviceInfoModel;
 
-            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
+            Task.Run(async () =>
+            {
+                var selectItem = obj as DeviceInfoModel;
 
-            Devices.Clear();
+                var linkIP = Devices.First(d => d.IpAddress == selectItem.IpAddress);
 
-            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, false);
+                if (IsTcpListenerClosed(GlobalValues.TcpClient.Tcp))
+                {
+                    GlobalValues.TcpClient.Tcp.Start();
+                }
 
-            GlobalValues.TcpClient.client?.Close();
-            GlobalValues.TcpClient.stream?.Close();
-            GlobalValues.TcpClient.tcp?.Stop();
+                Devices = await GlobalValues.UdpClient.IsConnectDevice(linkIP.IpAddress, false);
 
-            UpdateDeviceList();
+                GlobalValues.TcpClient.client?.Close();
+                GlobalValues.TcpClient.stream?.Close();
+                GlobalValues.TcpClient.Tcp?.Stop();
+            });
+
         }
 
         /// <summary>
@@ -325,16 +354,12 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         private void UpdateDeviceList()
         {
-            Devices.Clear();
-            GlobalValues.DeviceList.ForEach(d =>
+            ObservableCollection<DeviceInfoModel> devices = [];
+            Task.Run(async () =>
             {
-                Devices.Add(new()
-                {
-                    IpAddress = d.IpEndPoint.Address,
-                    SerialNum = d.SerialNum,
-                    Status = d.Status == 1 ? "已连接" : "未连接"
-                });
+                Devices = await GlobalValues.UdpClient.StartListen("192.168.1.37");
             });
+
         }
 
         /// <summary>
@@ -387,7 +412,7 @@ namespace CotrollerDemo.ViewModels
         /// <param name="xValue"></param>
         /// <param name="yValue"></param>
         /// <returns></returns>
-        private bool SolveValueAccurate(PointLineSeries series, double xValue, out double yValue)
+        private static bool SolveValueAccurate(PointLineSeries series, double xValue, out double yValue)
         {
             AxisY axisY = _chart.ViewXY.YAxes[series.AssignYAxisIndex];
             yValue = 0;
@@ -419,7 +444,7 @@ namespace CotrollerDemo.ViewModels
         /// <summary>
         /// 更新光标结果
         /// </summary>
-        private void UpdateCursorResult()
+        public static void UpdateCursorResult()
         {
             _chart.BeginUpdate();
 
@@ -439,8 +464,6 @@ namespace CotrollerDemo.ViewModels
             StringBuilder sb = new();
             int seriesNumber = 1;
 
-            string channelStringFormat = "Cruev {0}: {1,12:#####.###} {2}";
-
             string value;
 
             foreach (PointLineSeries series in _chart.ViewXY.PointLineSeries)
@@ -448,13 +471,14 @@ namespace CotrollerDemo.ViewModels
 
                 //如果批注中的光标值没有显示在光标旁边，则在图表的右侧显示其中的系列标题和光标值
                 series.Title.Visible = false;
+                string title = series.Title.Text.Split(':')[0];
                 bool resolvedOK = false;
 
                 resolvedOK = SolveValueAccurate(series, cursor.ValueAtXAxis, out double seriesYValue);
 
                 AxisY axisY = _chart.ViewXY.YAxes[series.AssignYAxisIndex];
 
-                value = string.Format(channelStringFormat, seriesNumber, seriesYValue.ToString("0.0"), axisY.Units.Text);
+                value = string.Format("{0}: {1,12:#####.###} {2}", title, seriesYValue.ToString("0.0"), axisY.Units.Text);
 
                 sb.AppendLine(value);
                 series.Title.Text = value;
@@ -611,6 +635,32 @@ namespace CotrollerDemo.ViewModels
 
             generatedColors.Add(color);
             return color;
+        }
+
+        /// <summary>
+        /// 判断 TcpListener 是否已关闭
+        /// </summary>
+        /// <param name="listener">TcpListener 实例</param>
+        /// <returns>如果已关闭返回 true，否则返回 false</returns>
+        public static bool IsTcpListenerClosed(TcpListener listener)
+        {
+            try
+            {
+                // 检查底层的 Socket 是否已关闭
+                if (listener.Server == null)
+                {
+                    return true; // Server 为 null 表示已关闭
+                }
+
+                // 尝试访问 Socket 的属性来判断状态
+                bool isClosed = !listener.Server.IsBound;
+                return isClosed;
+            }
+            catch (ObjectDisposedException)
+            {
+                // 如果 TcpListener 已经被释放，则说明已关闭
+                return true;
+            }
         }
     }
 

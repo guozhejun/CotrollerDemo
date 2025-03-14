@@ -14,7 +14,7 @@ namespace CotrollerDemo.Models
     {
         public TcpClient client;
         public NetworkStream stream;
-        public TcpListener tcp;
+        public TcpListener Tcp;
 
         public byte[] packLengths = [0x15, 0x15, 0x15, 0x15]; // 包长度
 
@@ -26,21 +26,20 @@ namespace CotrollerDemo.Models
 
         public int packLength = 21; // 包长度
 
-        public TcpClientModel(string ipAdderss)
+        public TcpClientModel()
         {
-            StartTcpListen(IPAddress.Parse(ipAdderss));
         }
 
-        public void StartTcpListen(IPAddress ipAdderss)
+        public void StartTcpListen(string ipAdderss)
         {
             Task.Run(async () =>
             {
                 try
                 {
-                    tcp = new(new IPEndPoint(ipAdderss, 9089));
-                    tcp.Start();
+                    Tcp = new(new IPEndPoint(IPAddress.Parse(ipAdderss), 9089));
+                    Tcp.Start();
 
-                    client = await tcp.AcceptTcpClientAsync();
+                    client = await Tcp.AcceptTcpClientAsync();
 
                     stream = client.GetStream();
 
@@ -83,6 +82,11 @@ namespace CotrollerDemo.Models
             client.Close();
         }
 
+        /// <summary>
+        /// 发送数据到客户端
+        /// </summary>
+        /// <param name="param"></param>
+        /// <returns></returns>
         public async Task SendDataClient(int param)
         {
             if (stream != null)

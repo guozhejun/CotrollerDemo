@@ -4,6 +4,8 @@ using Arction.Wpf.Charting.Axes;
 using Arction.Wpf.Charting.SeriesXY;
 using CotrollerDemo.Models;
 using CotrollerDemo.ViewModels;
+using DevExpress.Utils.CommonDialogs.Internal;
+using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Core.ConditionalFormattingManager;
 using DevExpress.Xpf.Editors;
 using System;
@@ -31,15 +33,11 @@ namespace CotrollerDemo.Views
     {
         public ControllerView()
         {
-
             InitializeComponent();
-            GlobalValues.UdpClient = new UdpClientModel("192.168.1.37");
-            GlobalValues.TcpClient = new TcpClientModel("192.168.1.37");
-
         }
 
         public ControllerViewModel Controller;
-       
+
         private void ContentBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             ControllerViewModel._chart.Width = ContentBase.ActualWidth;
@@ -86,9 +84,9 @@ namespace CotrollerDemo.Views
                         yAxis.MajorGrid.Visible = false;
                         yAxis.MinorGrid.Visible = false;
                         yAxis.MajorGrid.Pattern = LinePattern.Solid;
+                        yAxis.Units.Text = null;
                         yAxis.AutoDivSeparationPercent = 0;
                         yAxis.Visible = true;
-                        yAxis.MajorDivTickStyle.Alignment = Alignment.Near;
                         yAxis.SetRange(0, 100); // 设置Y轴范围
                         ControllerViewModel._chart.ViewXY.YAxes.Add(yAxis);
 
@@ -96,9 +94,27 @@ namespace CotrollerDemo.Views
                         PointLineSeries series = new(ControllerViewModel._chart.ViewXY, ControllerViewModel._chart.ViewXY.XAxes[0], yAxis)
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
-                  
+
                             LineStyle = { Color = ChartTools.CalcGradient(ControllerViewModel.GenerateUniqueColor(), Colors.White, 50) },
                             Points = new SeriesPoint[datas.Length]
+                        };
+
+
+
+                        series.MouseDoubleClick += (s, e) =>
+                        {
+                            var TemporarySeries = s as PointLineSeries;
+
+                            var title = TemporarySeries.Title.Text.Split(':');
+
+                            DialogResult result = (DialogResult)DXMessageBox.Show($"是否删除{title[0]}曲线?", "提示", MessageBoxButton.YesNo);
+
+                            if (result == DialogResult.Yes)
+                            {
+                                ControllerViewModel._chart.ViewXY.PointLineSeries.Remove(series);
+                                ControllerViewModel._chart.ViewXY.YAxes.Remove(yAxis);
+                                ControllerViewModel.UpdateCursorResult();
+                            }
                         };
 
                         for (int pointIndex = 0; pointIndex < datas.Length; pointIndex++)
@@ -110,6 +126,8 @@ namespace CotrollerDemo.Views
                         ControllerViewModel._chart.ViewXY.PointLineSeries.Add(series);
 
                         ControllerViewModel._chart.EndUpdate();
+
+                        ControllerViewModel.UpdateCursorResult();
                     }
                 }
 
