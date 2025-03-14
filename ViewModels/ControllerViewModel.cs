@@ -30,7 +30,6 @@ namespace CotrollerDemo.ViewModels
 {
     public class ControllerViewModel : BindableBase
     {
-
         private ObservableCollection<string> _fileNames = [];
 
         public ObservableCollection<string> FileNames
@@ -53,7 +52,7 @@ namespace CotrollerDemo.ViewModels
             set { SetProperty(ref _chartContent, value); }
         }
 
-        public static LightningChart _chart { get; set; } = new();
+        public LightningChart _chart { get; set; } = new();
 
         private List<SeriesPoint[]> _dataSeries = [];
 
@@ -88,15 +87,21 @@ namespace CotrollerDemo.ViewModels
 
         public DelegateCommand SaveDataCommand { get; set; }
 
-        public DelegateCommand StartTestCommand { get; set; }
+        public AsyncDelegateCommand StartTestCommand { get; set; }
 
         public DelegateCommand StopTestCommand { get; set; }
+
+        public DelegateCommand OpenFolderCommand { get; set; }
+
+        public DelegateCommand ClearFolderCommand { get; set; }
 
         public DelegateCommand<object> ConnectCommand { get; set; }
 
         public DelegateCommand<object> DisconnectCommand { get; set; }
 
         public DelegateCommand<object> SwitchLegendCommand { get; set; }
+
+        public DelegateCommand<object> DeleteFileCommand { get; set; }
 
         public ControllerViewModel()
         {
@@ -107,12 +112,15 @@ namespace CotrollerDemo.ViewModels
             UpdateDeviceList();
             GlobalValues.TcpClient.StartTcpListen("192.168.1.37");
 
-            StartTestCommand = new DelegateCommand(StartChart, CanStartChart).ObservesProperty(() => IsRunning);
+            StartTestCommand = new AsyncDelegateCommand(StartChart, CanStartChart).ObservesProperty(() => IsRunning);
             StopTestCommand = new DelegateCommand(StopTest, CanStopChart).ObservesProperty(() => IsRunning);
             SaveDataCommand = new DelegateCommand(SaveData);
+            OpenFolderCommand = new DelegateCommand(OpenFolder);
+            ClearFolderCommand = new DelegateCommand(ClearFolder);
             ConnectCommand = new DelegateCommand<object>(ConnectDevice);
             DisconnectCommand = new DelegateCommand<object>(DisconnectDevice);
             SwitchLegendCommand = new DelegateCommand<object>(SwitchLegend);
+            DeleteFileCommand = new DelegateCommand<object>(DeleteFile);
             GetFolderFiles();
         }
 
@@ -246,13 +254,13 @@ namespace CotrollerDemo.ViewModels
 
             //添加光标
             LineSeriesCursor cursor = new(_chart.ViewXY, _chart.ViewXY.XAxes[0]);
-            _chart.ViewXY.LineSeriesCursors.Add(cursor);
-            cursor.PositionChanged += cursor_PositionChanged;
-            cursor.ValueAtXAxis = 10;
+            cursor.ValueAtXAxis = 100;
             cursor.Visible = false;
             cursor.LineStyle.Color = Color.FromArgb(150, 255, 0, 0);
             cursor.SnapToPoints = true;
             cursor.TrackPoint.Color1 = Colors.White;
+            _chart.ViewXY.LineSeriesCursors.Add(cursor);
+            cursor.PositionChanged += cursor_PositionChanged;
 
             _chart.ViewXY.ZoomToFit();
 
@@ -365,8 +373,10 @@ namespace CotrollerDemo.ViewModels
         /// <summary>
         /// 开始试验
         /// </summary>
-        private void StartChart()
+        private async Task StartChart()
         {
+            await GlobalValues.TcpClient.SendDataClient(1);
+
             _timer = new()
             {
                 Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
@@ -406,13 +416,13 @@ namespace CotrollerDemo.ViewModels
         }
 
         /// <summary>
-        /// 解决值
+        /// 根据X值解决Y值
         /// </summary>
         /// <param name="series"></param>
         /// <param name="xValue"></param>
         /// <param name="yValue"></param>
         /// <returns></returns>
-        private static bool SolveValueAccurate(PointLineSeries series, double xValue, out double yValue)
+        private bool SolveValueAccurate(PointLineSeries series, double xValue, out double yValue)
         {
             AxisY axisY = _chart.ViewXY.YAxes[series.AssignYAxisIndex];
             yValue = 0;
@@ -444,7 +454,7 @@ namespace CotrollerDemo.ViewModels
         /// <summary>
         /// 更新光标结果
         /// </summary>
-        public static void UpdateCursorResult()
+        public void UpdateCursorResult()
         {
             _chart.BeginUpdate();
 
@@ -491,7 +501,7 @@ namespace CotrollerDemo.ViewModels
             //设置文本
             cursorValueDisplay.Text = sb.ToString();
 
-            cursorValueDisplay.Visible = true;
+            cursorValueDisplay.Visible = !IsRunning;
 
             _chart.EndUpdate();
         }
@@ -621,7 +631,7 @@ namespace CotrollerDemo.ViewModels
         /// 随机生成颜色
         /// </summary>
         /// <returns></returns>
-        public static Color GenerateUniqueColor()
+        public Color GenerateUniqueColor()
         {
 
             Color color;
@@ -660,6 +670,93 @@ namespace CotrollerDemo.ViewModels
             {
                 // 如果 TcpListener 已经被释放，则说明已关闭
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// 打开文件夹
+        /// </summary>
+        private void OpenFolder()
+        {
+            try
+            {
+                Process.Start("explorer.exe", folderPath);
+            }
+            catch (Exception ex)
+            {
+                // 处理异常
+                DXMessageBox.Show("无法打开文件夹: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 清空文件夹
+        /// </summary>
+        private void ClearFolder()
+        {
+
+            try
+            {
+
+                if ((DialogResult)DXMessageBox.Show("是否清空文件夹?", "提示", MessageBoxButton.YesNo) == DialogResult.Yes)
+                {
+                    // 清空文件夹中的所有文件
+                    if (!Directory.Exists(folderPath))
+                    {
+                        throw new DirectoryNotFoundException($"文件夹不存在: {folderPath}");
+                    }
+
+                    // 获取文件夹中的所有文件
+                    string[] files = Directory.GetFiles(folderPath);
+
+                    // 删除每个文件
+                    foreach (string file in files)
+                    {
+                        File.Delete(file);
+                    }
+
+                    // 获取文件夹中的所有子文件夹
+                    string[] subFolders = Directory.GetDirectories(folderPath);
+
+                    // 递归删除子文件夹及其内容
+                    foreach (string subFolder in subFolders)
+                    {
+                        Directory.Delete(subFolder, true); // true 表示递归删除
+                    }
+
+                    GetFolderFiles();
+                    DXMessageBox.Show("文件夹已清空！");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 处理异常
+                DXMessageBox.Show("无法清空文件夹: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 删除文件
+        /// </summary>
+        /// <param name="obj"></param>
+        private void DeleteFile(object obj)
+        {
+            try
+            {
+                if ((DialogResult)DXMessageBox.Show("是否删除此文件?", "提示", MessageBoxButton.YesNo) == DialogResult.Yes)
+                {
+                    string fileName = obj as string;
+                    string file = Path.Combine(folderPath, fileName);
+                    File.Delete(file);
+
+                    GetFolderFiles();
+                    DXMessageBox.Show("文件已删除！");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 处理异常
+                DXMessageBox.Show("无法删除文件: " + ex.Message);
             }
         }
     }

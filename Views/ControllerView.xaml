@@ -24,20 +24,48 @@
         AnimateScrolling="False"
         DragScrolling="False"
         Orientation="Horizontal">
-        <dxlc:LayoutItem
+        <dxlc:LayoutGroup
+            x:Name="fileGroup"
             HorizontalAlignment="Left"
-            Label="文件列表"
-            LabelPosition="Top">
-            <dxe:ListBoxEdit
-                MinWidth="210"
-                MinHeight="330"
-                MaxHeight="925"
+            Orientation="Vertical">
+            <dxlc:LayoutItem Label="文件列表" LabelPosition="Top">
+                <dxe:ListBoxEdit
+                    x:Name="fileList"
+                    MinWidth="225"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Stretch"
+                    dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
+                    ItemsSource="{Binding FileNames}"
+                    PreviewMouseMove="ListBoxEdit_PreviewMouseMove" />
+            </dxlc:LayoutItem>
+            <dxlc:LayoutGroup
+                Margin="0,10,0,0"
                 HorizontalAlignment="Left"
-                VerticalAlignment="Stretch"
-                dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
-                ItemsSource="{Binding FileNames}"
-                PreviewMouseMove="ListBoxEdit_PreviewMouseMove" />
-        </dxlc:LayoutItem>
+                VerticalAlignment="Top">
+                <dxlc:LayoutItem>
+                    <dx:SimpleButton
+                        Height="30"
+                        Margin="5,0"
+                        Command="{Binding OpenFolderCommand}"
+                        Content="打开文件夹" />
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem>
+                    <dx:SimpleButton
+                        Height="30"
+                        Margin="5,0"
+                        Command="{Binding ClearFolderCommand}"
+                        Content="清空" />
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem>
+                    <dx:SimpleButton
+                        Height="30"
+                        Margin="5,0"
+                        Command="{Binding DeleteFileCommand}"
+                        CommandParameter="{Binding ElementName=fileList, Path=SelectedItem}"
+                        Content="删除" />
+                </dxlc:LayoutItem>
+            </dxlc:LayoutGroup>
+        </dxlc:LayoutGroup>
         <dxlc:LayoutGroup Margin="15,0,0,0" Orientation="Vertical">
             <dxlc:LayoutGroup
                 HorizontalAlignment="Stretch"

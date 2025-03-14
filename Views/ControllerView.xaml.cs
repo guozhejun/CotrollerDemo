@@ -34,14 +34,34 @@ namespace CotrollerDemo.Views
         public ControllerView()
         {
             InitializeComponent();
+
+            var mainView = Application.Current.MainWindow as MainWindow;
+            if (mainView != null)
+            {
+                main = mainView;
+                mainView.LayoutUpdated += MainView_LayoutUpdated;
+            }
         }
 
-        public ControllerViewModel Controller;
+        ControllerViewModel Controller = new();
+        MainWindow main = new();
+
+        private void MainView_LayoutUpdated(object sender, EventArgs e)
+        {
+            double newHeight = main.ActualHeight - 80;
+            fileGroup.Height = newHeight;
+            if (fileGroup.Height >= 100)
+            {
+                fileList.Height = fileGroup.Height - 100;
+            }
+
+        }
 
         private void ContentBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            ControllerViewModel._chart.Width = ContentBase.ActualWidth;
-            ControllerViewModel._chart.Height = ContentBase.ActualHeight;
+            Controller = DataContext as ControllerViewModel;
+            Controller._chart.Width = ContentBase.ActualWidth;
+            Controller._chart.Height = ContentBase.ActualHeight;
         }
 
         private void ListBoxEdit_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -53,7 +73,7 @@ namespace CotrollerDemo.Views
             }
         }
 
-        private void LightingChartItem_Drop(object sender, DragEventArgs e)
+        public void LightingChartItem_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.StringFormat))
             {
@@ -74,10 +94,10 @@ namespace CotrollerDemo.Views
 
                     if (data != null)
                     {
-                        ControllerViewModel._chart.BeginUpdate();
+                        Controller._chart.BeginUpdate();
 
                         // 创建新的Y轴
-                        var yAxis = new AxisY(ControllerViewModel._chart.ViewXY);
+                        var yAxis = new AxisY(Controller._chart.ViewXY);
                         yAxis.Title.Visible = false;
                         yAxis.Units.Visible = false;
                         yAxis.AllowScaling = false;
@@ -88,14 +108,14 @@ namespace CotrollerDemo.Views
                         yAxis.AutoDivSeparationPercent = 0;
                         yAxis.Visible = true;
                         yAxis.SetRange(0, 100); // 设置Y轴范围
-                        ControllerViewModel._chart.ViewXY.YAxes.Add(yAxis);
+                        Controller._chart.ViewXY.YAxes.Add(yAxis);
 
 
-                        PointLineSeries series = new(ControllerViewModel._chart.ViewXY, ControllerViewModel._chart.ViewXY.XAxes[0], yAxis)
+                        PointLineSeries series = new(Controller._chart.ViewXY, Controller._chart.ViewXY.XAxes[0], yAxis)
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
 
-                            LineStyle = { Color = ChartTools.CalcGradient(ControllerViewModel.GenerateUniqueColor(), Colors.White, 50) },
+                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50) },
                             Points = new SeriesPoint[datas.Length]
                         };
 
@@ -111,9 +131,9 @@ namespace CotrollerDemo.Views
 
                             if (result == DialogResult.Yes)
                             {
-                                ControllerViewModel._chart.ViewXY.PointLineSeries.Remove(series);
-                                ControllerViewModel._chart.ViewXY.YAxes.Remove(yAxis);
-                                ControllerViewModel.UpdateCursorResult();
+                                Controller._chart.ViewXY.PointLineSeries.Remove(series);
+                                Controller._chart.ViewXY.YAxes.Remove(yAxis);
+                                Controller.UpdateCursorResult();
                             }
                         };
 
@@ -123,11 +143,11 @@ namespace CotrollerDemo.Views
                             series.Points[pointIndex].Y = Convert.ToDouble(datas[pointIndex][1]);
                         }
 
-                        ControllerViewModel._chart.ViewXY.PointLineSeries.Add(series);
+                        Controller._chart.ViewXY.PointLineSeries.Add(series);
 
-                        ControllerViewModel._chart.EndUpdate();
+                        Controller._chart.EndUpdate();
 
-                        ControllerViewModel.UpdateCursorResult();
+                        Controller.UpdateCursorResult();
                     }
                 }
 
