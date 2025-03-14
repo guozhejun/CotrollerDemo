@@ -38,56 +38,59 @@ namespace CotrollerDemo.Models
         {
             try
             {
-                serverIp = IPAddress.Parse(ipAddress);
-                int serverPort = 8080;
-                udpServer ??= new(serverPort);
+                Task.Run(() =>
+                {
+                    serverIp = IPAddress.Parse(ipAddress);
+                    int serverPort = 8080;
+                    udpServer ??= new(serverPort);
 
-                byte[] typeValues = [1, 1, 1, 0, 0, 0, 0]; // 类型值
+                    byte[] typeValues = [1, 1, 1, 0, 0, 0, 0]; // 类型值
 
-                byte[] bufferBytes =
-                [
-                    .. hexValue,
+                    byte[] bufferBytes =
+                    [
+                        .. hexValue,
                     .. BitConverter.GetBytes(version),
                     .. typeValues,
                     .. BitConverter.GetBytes(packLength),
                     .. serverIp.GetAddressBytes(),
                     .. GetMacAddress()
-                ];
+                    ];
 
-                udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
+                    udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
 
-                // 接收UDP服务端的响应
-                byte[] receivedBytes = udpServer.Receive(ref receivePoint);
+                    // 接收UDP服务端的响应
+                    byte[] receivedBytes = udpServer.Receive(ref receivePoint);
 
-                byte[] TemporaryArray = new byte[8];
+                    byte[] TemporaryArray = new byte[8];
 
-                Array.Copy(receivedBytes, TemporaryArray, 8);
+                    Array.Copy(receivedBytes, TemporaryArray, 8);
 
-                string[] hexArray = [.. TemporaryArray.Select(b => b.ToString("X2"))];
+                    string[] hexArray = [.. TemporaryArray.Select(b => b.ToString("X2"))];
 
-                if (receiveValue.SequenceEqual(hexArray))
-                {
-                    // 获取接收到的IP
-                    byte[] deviceIpByte = new byte[4];
-                    Array.Copy(receivedBytes, receivedBytes.Length - 23, deviceIpByte, 0, 4);
-
-                    // 获取接收到的序列号
-                    byte[] deviceSerialNumByte = new byte[16];
-                    Array.Copy(receivedBytes, receivedBytes.Length - 19, deviceSerialNumByte, 0, 16);
-                    string[] deviceSerialNums = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
-
-                    DeviceConnectState = receivedBytes[31];
-
-                    GlobalValues.DeviceList.Clear();
-
-                    // 将获取到的数据存到全局变量中
-                    GlobalValues.DeviceList.Add(new()
+                    if (receiveValue.SequenceEqual(hexArray))
                     {
-                        IpEndPoint = receivePoint,
-                        SerialNum = string.Join(":", deviceSerialNums),
-                        Status = DeviceConnectState
-                    });
-                }
+                        // 获取接收到的IP
+                        byte[] deviceIpByte = new byte[4];
+                        Array.Copy(receivedBytes, receivedBytes.Length - 23, deviceIpByte, 0, 4);
+
+                        // 获取接收到的序列号
+                        byte[] deviceSerialNumByte = new byte[16];
+                        Array.Copy(receivedBytes, receivedBytes.Length - 19, deviceSerialNumByte, 0, 16);
+                        string[] deviceSerialNums = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
+
+                        DeviceConnectState = receivedBytes[31];
+
+                        GlobalValues.DeviceList.Clear();
+
+                        // 将获取到的数据存到全局变量中
+                        GlobalValues.DeviceList.Add(new()
+                        {
+                            IpEndPoint = receivePoint,
+                            SerialNum = string.Join(":", deviceSerialNums),
+                            Status = DeviceConnectState
+                        });
+                    }
+                });
 
             }
             catch (Exception)
@@ -138,7 +141,7 @@ namespace CotrollerDemo.Models
             else if (receivedBytes.Last() == 0 && DeviceConnectState == 1 && !IsConnect)
             {
                 GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == address).Status = 0;
-    
+
             }
             StartListen(address.ToString());
         }

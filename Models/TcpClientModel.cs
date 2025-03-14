@@ -28,19 +28,30 @@ namespace CotrollerDemo.Models
 
         public TcpClientModel(string ipAdderss)
         {
-            _ = StartTcpListen(IPAddress.Parse(ipAdderss));
+            StartTcpListen(IPAddress.Parse(ipAdderss));
         }
 
-        public async Task StartTcpListen(IPAddress ipAdderss)
+        public void StartTcpListen(IPAddress ipAdderss)
         {
-            tcp = new(new IPEndPoint(ipAdderss, 9089));
-            tcp.Start();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    tcp = new(new IPEndPoint(ipAdderss, 9089));
+                    tcp.Start();
 
-            client = await tcp.AcceptTcpClientAsync();
+                    client = await tcp.AcceptTcpClientAsync();
 
-            stream = client.GetStream();
+                    stream = client.GetStream();
 
-            _ = ReceiveDataClient();
+                    await ReceiveDataClient();
+
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex.Message);
+                }
+            });
         }
 
 

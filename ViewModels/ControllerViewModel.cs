@@ -74,7 +74,10 @@ namespace CotrollerDemo.ViewModels
         public bool IsRunning
         {
             get { return _isRunning; }
-            set { SetProperty(ref _isRunning, value); }
+            set
+            {
+                SetProperty(ref _isRunning, value);
+            }
         }
 
         public DelegateCommand DeviceSearchCommand { get; set; }
@@ -184,7 +187,7 @@ namespace CotrollerDemo.ViewModels
 
             chart.ChartRenderOptions.DeviceType = RendererDeviceType.AutoPreferD11;
             chart.ChartRenderOptions.LineAAType2D = LineAntiAliasingType.QLAA;
-            
+
             view = chart.ViewXY;
 
             view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling; // 设置X轴滚动模式

@@ -42,8 +42,8 @@ namespace CotrollerDemo.Views
        
         private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            ControllerViewModel.chart.Width = CanvasBase.ActualWidth;
-            ControllerViewModel.chart.Height = CanvasBase.ActualHeight;
+            ControllerViewModel.chart.Width = ContentBase.ActualWidth;
+            ControllerViewModel.chart.Height = ContentBase.ActualHeight;
         }
 
         private void ListBoxEdit_PreviewMouseMove(object sender, MouseEventArgs e)
