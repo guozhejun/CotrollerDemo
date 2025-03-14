@@ -7,6 +7,7 @@ using Arction.Wpf.Charting.Views.ViewXY;
 using CotrollerDemo.Models;
 using DevExpress.Mvvm.Native;
 using DevExpress.Utils;
+using DevExpress.Xpf.Core;
 using DryIoc.ImTools;
 using Prism.Commands;
 using Prism.Mvvm;
@@ -44,22 +45,22 @@ namespace CotrollerDemo.ViewModels
             set { SetProperty(ref _devices, value); }
         }
 
-        private object _chartContent;
+        private object _chartContent = new();
         public object ChartContent
         {
             get { return _chartContent; }
             set { SetProperty(ref _chartContent, value); }
         }
 
-        public static LightningChart chart { get; set; } = new();
-
-        public static ViewXY view { get; set; } = new();
+        public static LightningChart _chart { get; set; } = new();
 
         private List<SeriesPoint[]> _dataSeries = [];
 
         private int _pointCount = 0;
 
         private const int MaxPoints = 1024;
+
+        private int _seriseCount = 8;
 
         private DispatcherTimer _timer;
 
@@ -76,6 +77,8 @@ namespace CotrollerDemo.ViewModels
             get { return _isRunning; }
             set
             {
+                _chart.ViewXY.LineSeriesCursors[0].Visible = !value;
+                _chart.ViewXY.Annotations[0].Visible = !value;
                 SetProperty(ref _isRunning, value);
             }
         }
@@ -92,16 +95,13 @@ namespace CotrollerDemo.ViewModels
 
         public DelegateCommand<object> DisconnectCommand { get; set; }
 
+        public DelegateCommand<object> SwitchLegendCommand { get; set; }
+
         public ControllerViewModel()
         {
             CreateChart();
 
-            for (int i = 0; i < 8; i++)
-            {
-                _dataSeries.Add(new SeriesPoint[MaxPoints]);
-            }
-
-            ChartContent = chart;
+            ChartContent = _chart;
 
             UpdateDeviceList();
 
@@ -110,87 +110,24 @@ namespace CotrollerDemo.ViewModels
             SaveDataCommand = new DelegateCommand(SaveData);
             ConnectCommand = new DelegateCommand<object>(ConnectDevice);
             DisconnectCommand = new DelegateCommand<object>(DisconnectDevice);
+            SwitchLegendCommand = new DelegateCommand<object>(SwitchLegend);
             GetFolderFiles();
         }
 
-        private bool CanStopChart()
-        {
-            return IsRunning;
-        }
 
-        private bool CanStartChart()
-        {
-            return !IsRunning;
-        }
-
-        private void ConnectDevice(object obj)
-        {
-            var selectItem = obj as DeviceInfoModel;
-
-            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
-
-            GlobalValues.TcpClient.tcp.Start();
-
-            Devices.Clear();
-
-            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, true);
-
-            UpdateDeviceList();
-        }
-
-        private void DisconnectDevice(object obj)
-        {
-            var selectItem = obj as DeviceInfoModel;
-
-            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
-
-            Devices.Clear();
-
-            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, false);
-
-            GlobalValues.TcpClient.client?.Close();
-            GlobalValues.TcpClient.stream?.Close();
-            GlobalValues.TcpClient.tcp?.Stop();
-
-            UpdateDeviceList();
-        }
-
-        private void UpdateDeviceList()
-        {
-            Devices.Clear();
-            GlobalValues.DeviceList.ForEach(d =>
-            {
-                Devices.Add(new()
-                {
-                    IpAddress = d.IpEndPoint.Address,
-                    SerialNum = d.SerialNum,
-                    Status = d.Status == 1 ? "已连接" : "未连接"
-                });
-            });
-        }
-
-        private void StopTest()
-        {
-            if (_timer != null)
-            {
-                _timer.Stop();
-                _timer.Tick -= OnTimerTick;
-                _timer = null;
-            }
-
-            IsRunning = false; // 更新运行状态
-        }
-
+        /// <summary>
+        /// 创建图表
+        /// </summary>
         private void CreateChart()
         {
-            chart.BeginUpdate();
+            _chart.BeginUpdate();
 
-            chart.ChartRenderOptions.DeviceType = RendererDeviceType.AutoPreferD11;
-            chart.ChartRenderOptions.LineAAType2D = LineAntiAliasingType.QLAA;
+            ///只允许水平平移和鼠标滚轮缩放
+            _chart.ViewXY.ZoomPanOptions.PanDirection = PanDirection.Horizontal;
+            _chart.ViewXY.ZoomPanOptions.WheelZooming = WheelZooming.Horizontal;
 
-            view = chart.ViewXY;
+            ViewXY view = _chart.ViewXY;
 
-            view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling; // 设置X轴滚动模式
             view.XAxes[0].SetRange(0, 1024); // 设置X轴范围
             view.XAxes[0].SweepingGap = 0; // 设置X轴滚动间隔
             view.XAxes[0].ValueType = AxisValueType.Number; // 设置X轴数据类型
@@ -203,6 +140,8 @@ namespace CotrollerDemo.ViewModels
 
             view.LegendBoxes[0].Layout = LegendBoxLayout.Vertical;
             view.LegendBoxes[0].Fill.Color = Colors.Transparent;
+            view.LegendBoxes[0].Shadow.Color = Colors.Transparent;
+
             view.AxisLayout.AxisGridStrips = XYAxisGridStrips.X;
             view.AxisLayout.YAxesLayout = YAxesLayout.Stacked; // 设置Y轴布局
             view.AxisLayout.SegmentsGap = 2; // 设置Y轴间隔
@@ -211,23 +150,14 @@ namespace CotrollerDemo.ViewModels
 
             view.AxisLayout.AutoAdjustMargins = false; // 设置是否自动调整边距
 
-            chart.EndUpdate();
-        }
-
-        private void StartChart()
-        {
-
-            //_ = GlobalValues.TcpClient.SendDataClient(1);
-
-            chart.BeginUpdate();
-
             DisposeAllAndClear(view.PointLineSeries);
             DisposeAllAndClear(view.YAxes);
 
-            // 创建8条曲线，每条曲线颜色不同
-            for (int i = 0; i < _dataSeries.Count; i++)
-            {
+            Color color = Colors.Black;
 
+            // 创建8条曲线，每条曲线颜色不同
+            for (int i = 0; i < _seriseCount; i++)
+            {
                 Color lineBaseColor = GenerateUniqueColor();
                 // 创建新的Y轴
                 var yAxis = new AxisY(view);
@@ -235,6 +165,7 @@ namespace CotrollerDemo.ViewModels
                 yAxis.Title.Visible = true;
                 yAxis.Title.Angle = 0;
                 yAxis.Title.Color = lineBaseColor;
+                yAxis.Units.Text = null;
                 yAxis.Units.Visible = false;
                 yAxis.AllowScaling = false;
                 yAxis.MajorGrid.Visible = false;
@@ -242,7 +173,6 @@ namespace CotrollerDemo.ViewModels
                 yAxis.MajorGrid.Pattern = LinePattern.Solid;
                 yAxis.AutoDivSeparationPercent = 0;
                 yAxis.Visible = true;
-                yAxis.MajorDivTickStyle.Alignment = Alignment.Near;
                 yAxis.SetRange(0, 100); // 设置Y轴范围
                 yAxis.MajorGrid.Color = Colors.LightGray;
                 view.YAxes.Add(yAxis);
@@ -269,13 +199,152 @@ namespace CotrollerDemo.ViewModels
                 };
 
                 view.PointLineSeries.Add(series);
+
+                _dataSeries.Add(new SeriesPoint[MaxPoints]);
+                for (int j = 0; j < MaxPoints; j++)
+                {
+                    _dataSeries[i][j] = new SeriesPoint(j, 0); // 初始数据为0
+                }
+
             }
+            //Add an annotation to show the cursor values
+            AnnotationXY cursorValueDisplay = new(_chart.ViewXY, _chart.ViewXY.XAxes[0], _chart.ViewXY.YAxes[0])
+            {
+                Style = AnnotationStyle.RoundedCallout,
+                LocationCoordinateSystem = CoordinateSystem.RelativeCoordinatesToTarget
+            };
+            cursorValueDisplay.LocationRelativeOffset.X = 130;
+            cursorValueDisplay.LocationRelativeOffset.Y = -200;
+            cursorValueDisplay.Sizing = AnnotationXYSizing.Automatic;
+            cursorValueDisplay.TextStyle.Color = Colors.Black;
+            cursorValueDisplay.Text = "";
+            cursorValueDisplay.AllowTargetMove = false;
+            cursorValueDisplay.Fill.Color = Colors.White;
+            cursorValueDisplay.Fill.GradientColor = Color.FromArgb(120, color.R, color.G, color.B);
+            cursorValueDisplay.BorderVisible = false;
+            cursorValueDisplay.Visible = false;
+            _chart.ViewXY.Annotations.Add(cursorValueDisplay);
 
-            chart.EndUpdate();
+            //Add cursor
+            LineSeriesCursor cursor = new(_chart.ViewXY, _chart.ViewXY.XAxes[0]);
+            _chart.ViewXY.LineSeriesCursors.Add(cursor);
+            cursor.PositionChanged += cursor_PositionChanged;
+            cursor.ValueAtXAxis = 10;
+            cursor.LineStyle.Color = Color.FromArgb(150, 255, 0, 0);
+            cursor.SnapToPoints = true;
+            cursor.TrackPoint.Color1 = Colors.White;
 
+            _chart.ViewXY.ZoomToFit();
+
+            _chart.AfterRendering += _chart_AfterRendering;
+
+            _chart.EndUpdate();
+            _chart.SizeChanged += new SizeChangedEventHandler(_chart_SizeChanged);
+
+        }
+
+        /// <summary>
+        /// 切换图例状态
+        /// </summary>
+        /// <param name="obj"></param>
+        private void SwitchLegend(object obj)
+        {
+            var btn = obj as SimpleButton;
+
+            if (btn.Content.ToString() == "隐藏图例")
+            {
+                btn.Content = "显示图例";
+            }
+            else
+            {
+                btn.Content = "隐藏图例";
+            }
+            _chart.ViewXY.LegendBoxes[0].Visible = !_chart.ViewXY.LegendBoxes[0].Visible;
+        }
+
+        /// <summary>
+        /// 是否可以停止绘制图表
+        /// </summary>
+        /// <returns></returns>
+        private bool CanStopChart()
+        {
+            return IsRunning;
+        }
+
+        /// <summary>
+        /// 是否可以开始绘制图表
+        /// </summary>
+        /// <returns></returns>
+        private bool CanStartChart()
+        {
+            return !IsRunning;
+        }
+
+        /// <summary>
+        /// 连接设备
+        /// </summary>
+        /// <param name="obj"></param>
+        private void ConnectDevice(object obj)
+        {
+            var selectItem = obj as DeviceInfoModel;
+
+            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
+
+            GlobalValues.TcpClient.tcp.Start();
+
+            Devices.Clear();
+
+            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, true);
+
+            UpdateDeviceList();
+        }
+
+        /// <summary>
+        /// 断开设备
+        /// </summary>
+        /// <param name="obj"></param>
+        private void DisconnectDevice(object obj)
+        {
+            var selectItem = obj as DeviceInfoModel;
+
+            var linkIP = GlobalValues.DeviceList.First(d => d.IpEndPoint.Address == selectItem.IpAddress);
+
+            Devices.Clear();
+
+            GlobalValues.UdpClient.IsConnectDevice(linkIP.IpEndPoint.Address, false);
+
+            GlobalValues.TcpClient.client?.Close();
+            GlobalValues.TcpClient.stream?.Close();
+            GlobalValues.TcpClient.tcp?.Stop();
+
+            UpdateDeviceList();
+        }
+
+        /// <summary>
+        /// 更新设备列表
+        /// </summary>
+        private void UpdateDeviceList()
+        {
+            Devices.Clear();
+            GlobalValues.DeviceList.ForEach(d =>
+            {
+                Devices.Add(new()
+                {
+                    IpAddress = d.IpEndPoint.Address,
+                    SerialNum = d.SerialNum,
+                    Status = d.Status == 1 ? "已连接" : "未连接"
+                });
+            });
+        }
+
+        /// <summary>
+        /// 开始试验
+        /// </summary>
+        private void StartChart()
+        {
             _timer = new()
             {
-                Interval = TimeSpan.FromMilliseconds(100), // 更新间隔
+                Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
             };
             _timer.Tick += OnTimerTick;
             _timer.Start();
@@ -283,19 +352,144 @@ namespace CotrollerDemo.ViewModels
             IsRunning = true; // 更新运行状态
         }
 
+        /// <summary>
+        /// 停止试验
+        /// </summary>
+        private void StopTest()
+        {
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Tick -= OnTimerTick;
+                _timer = null;
+            }
+
+            IsRunning = false; // 更新运行状态
+        }
+
+        /// <summary>
+        /// 更新光标位置
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void cursor_PositionChanged(object sender, PositionChangedEventArgs e)
+        {
+            //取消正在进行的呈现，因为下面的代码更新了图表。
+            e.CancelRendering = true;
+
+            UpdateCursorResult();
+        }
+
+        /// <summary>
+        /// 解决值
+        /// </summary>
+        /// <param name="series"></param>
+        /// <param name="xValue"></param>
+        /// <param name="yValue"></param>
+        /// <returns></returns>
+        private bool SolveValueAccurate(PointLineSeries series, double xValue, out double yValue)
+        {
+            AxisY axisY = _chart.ViewXY.YAxes[series.AssignYAxisIndex];
+            yValue = 0;
+
+            LineSeriesValueSolveResult result = series.SolveYValueAtXValue(xValue);
+            if (result.SolveStatus == LineSeriesSolveStatus.OK)
+            {
+                //PointLineSeries may have two or more points at same X value. If so, center it between min and max 
+                yValue = (result.YMax + result.YMin) / 2.0;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private void _chart_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateCursorResult();
+        }
+
+        private void _chart_AfterRendering(object sender, AfterRenderingEventArgs e)
+        {
+            _chart.AfterRendering -= _chart_AfterRendering;
+            UpdateCursorResult();
+        }
+
+        /// <summary>
+        /// 更新光标结果
+        /// </summary>
+        private void UpdateCursorResult()
+        {
+            _chart.BeginUpdate();
+
+            //获取光标
+            LineSeriesCursor cursor = _chart.ViewXY.LineSeriesCursors[0];
+
+            //获取注释
+            AnnotationXY cursorValueDisplay = _chart.ViewXY.Annotations[0];
+
+            float targetYCoord = (float)_chart.ViewXY.GetMarginsRect().Bottom;
+            _chart.ViewXY.YAxes[0].CoordToValue(targetYCoord, out double y);
+
+            cursorValueDisplay.TargetAxisValues.X = cursor.ValueAtXAxis;
+            cursorValueDisplay.TargetAxisValues.Y = y;
+
+
+            StringBuilder sb = new();
+            int seriesNumber = 1;
+
+            string channelStringFormat = "Cruev {0}: {1,12:#####.###} {2}";
+
+            string value;
+
+            foreach (PointLineSeries series in _chart.ViewXY.PointLineSeries)
+            {
+
+                //如果批注中的光标值没有显示在光标旁边，则在图表的右侧显示其中的系列标题和光标值
+                series.Title.Visible = false;
+                bool resolvedOK = false;
+
+                resolvedOK = SolveValueAccurate(series, cursor.ValueAtXAxis, out double seriesYValue);
+
+                AxisY axisY = _chart.ViewXY.YAxes[series.AssignYAxisIndex];
+
+                value = string.Format(channelStringFormat, seriesNumber, seriesYValue.ToString("0.0"), axisY.Units.Text);
+
+                sb.AppendLine(value);
+                series.Title.Text = value;
+                seriesNumber++;
+            }
+
+            sb.AppendLine("");
+            sb.AppendLine("X: " + cursor.ValueAtXAxis.ToString());
+
+            //设置文本
+            cursorValueDisplay.Text = sb.ToString();
+
+            cursorValueDisplay.Visible = true;
+
+            _chart.EndUpdate();
+        }
+
+        /// <summary>
+        /// 定时器触发事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnTimerTick(object sender, EventArgs e)
         {
             PointLineSeries series = new();
 
-            chart.BeginUpdate();
+            _chart.BeginUpdate();
 
 
-            for (int i = 0; i < view.PointLineSeries.Count; i++)
+            for (int i = 0; i < _chart.ViewXY.PointLineSeries.Count; i++)
             {
                 double y = random.NextDouble() * 100; // 生成随机数据
                 _dataSeries[i][_pointCount] = new SeriesPoint(_pointCount, y);
 
-                series = view.PointLineSeries[i];
+                series = _chart.ViewXY.PointLineSeries[i];
                 series.Points = _dataSeries[i];
 
             }
@@ -306,15 +500,25 @@ namespace CotrollerDemo.ViewModels
             {
                 SaveData();
                 _pointCount = 0;
-                series.LineStyle = new LineStyle()
+
+                _dataSeries = [];
+
+                for (int i = 0; i < _seriseCount; i++)
                 {
-                    Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50)
-                };
+                    _dataSeries.Add(new SeriesPoint[MaxPoints]);
+                    for (int j = 0; j < MaxPoints; j++)
+                    {
+                        _dataSeries[i][j] = new SeriesPoint(j, 0); // 初始数据为0
+                    }
+                }
             }
 
-            chart.EndUpdate();
+            _chart.EndUpdate();
         }
 
+        /// <summary>
+        /// 保存折线数据
+        /// </summary>
         private void SaveData()
         {
             try
@@ -342,6 +546,9 @@ namespace CotrollerDemo.ViewModels
             }
         }
 
+        /// <summary>
+        /// 获取文件夹下的所有文件
+        /// </summary>
         private void GetFolderFiles()
         {
             try
@@ -362,6 +569,11 @@ namespace CotrollerDemo.ViewModels
             }
         }
 
+        /// <summary>
+        /// 释放所有并清除数组
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
         public static void DisposeAllAndClear<T>(List<T> list) where T : IDisposable
         {
             if (list == null)
@@ -381,16 +593,20 @@ namespace CotrollerDemo.ViewModels
             }
         }
 
+        /// <summary>
+        /// 随机生成颜色
+        /// </summary>
+        /// <returns></returns>
         public static Color GenerateUniqueColor()
         {
 
             Color color;
             do
             {
-                byte red = (byte)random.Next(256);
-                byte green = (byte)random.Next(256);
-                byte blue = (byte)random.Next(256);
-                color = Color.FromArgb(255, red, green, blue);
+                byte a = (byte)random.Next(256);
+                byte b = (byte)random.Next(256);
+                byte c = (byte)random.Next(256);
+                color = Color.FromRgb(a, b, c);
             } while (generatedColors.Contains(color));
 
             generatedColors.Add(color);

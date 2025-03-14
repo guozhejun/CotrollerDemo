@@ -40,10 +40,10 @@ namespace CotrollerDemo.Views
 
         public ControllerViewModel Controller;
        
-        private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void ContentBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            ControllerViewModel.chart.Width = ContentBase.ActualWidth;
-            ControllerViewModel.chart.Height = ContentBase.ActualHeight;
+            ControllerViewModel._chart.Width = ContentBase.ActualWidth;
+            ControllerViewModel._chart.Height = ContentBase.ActualHeight;
         }
 
         private void ListBoxEdit_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -76,10 +76,10 @@ namespace CotrollerDemo.Views
 
                     if (data != null)
                     {
-                        ControllerViewModel.chart.BeginUpdate();
+                        ControllerViewModel._chart.BeginUpdate();
 
                         // 创建新的Y轴
-                        var yAxis = new AxisY(ControllerViewModel.view);
+                        var yAxis = new AxisY(ControllerViewModel._chart.ViewXY);
                         yAxis.Title.Visible = false;
                         yAxis.Units.Visible = false;
                         yAxis.AllowScaling = false;
@@ -90,10 +90,10 @@ namespace CotrollerDemo.Views
                         yAxis.Visible = true;
                         yAxis.MajorDivTickStyle.Alignment = Alignment.Near;
                         yAxis.SetRange(0, 100); // 设置Y轴范围
-                        ControllerViewModel.view.YAxes.Add(yAxis);
+                        ControllerViewModel._chart.ViewXY.YAxes.Add(yAxis);
 
 
-                        PointLineSeries series = new(ControllerViewModel.view, ControllerViewModel.view.XAxes[0], yAxis)
+                        PointLineSeries series = new(ControllerViewModel._chart.ViewXY, ControllerViewModel._chart.ViewXY.XAxes[0], yAxis)
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
                   
@@ -107,9 +107,9 @@ namespace CotrollerDemo.Views
                             series.Points[pointIndex].Y = Convert.ToDouble(datas[pointIndex][1]);
                         }
 
-                        ControllerViewModel.view.PointLineSeries.Add(series);
+                        ControllerViewModel._chart.ViewXY.PointLineSeries.Add(series);
 
-                        ControllerViewModel.chart.EndUpdate();
+                        ControllerViewModel._chart.EndUpdate();
                     }
                 }
 

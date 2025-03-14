@@ -10,38 +10,8 @@
     <PackageReference Include="Prism.DryIoc" Version="9.0.537" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Arction.DirectX">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.DirectX.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.DirectXFiles">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.DirectXFiles.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.DirectXInit">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.DirectXInit.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.Licensing">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Licensing.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.MathCore">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.MathCore.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.RenderingDefinitions">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.RenderingDefinitions.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.RenderingEngine">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.RenderingEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.RenderingEngine11">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.RenderingEngine11.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.RenderingEngine9">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.RenderingEngine9.dll</HintPath>
-    </Reference>
     <Reference Include="Arction.Wpf.Charting.LightningChart">
       <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.Charting.LightningChart.dll</HintPath>
-    </Reference>
-    <Reference Include="Arction.Wpf.ChartingMVVM.LightningChart">
-      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.ChartingMVVM.LightningChart.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

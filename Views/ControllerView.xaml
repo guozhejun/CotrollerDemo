@@ -104,11 +104,11 @@
                     AllowDrop="True"
                     Drop="LightingChartItem_Drop">
                     <ContentControl
-                        Name="CanvasBase"
+                        x:Name="ContentBase"
                         MinWidth="525"
                         Margin="0,0,5,0"
                         Content="{Binding ChartContent}"
-                        SizeChanged="CanvasBase_SizeChanged" />
+                        SizeChanged="ContentBase_SizeChanged" />
                 </dxlc:LayoutItem>
                 <dxlc:LayoutGroup
                     Margin="0,5"
@@ -140,6 +140,16 @@
                             Height="30"
                             Command="{Binding SaveDataCommand}"
                             Content="保存数据" />
+                    </dxlc:LayoutItem>
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
+                        <dx:SimpleButton
+                            Height="30"
+                            Command="{Binding SwitchLegendCommand}"
+                            CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                            Content="隐藏图例" />
                     </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
