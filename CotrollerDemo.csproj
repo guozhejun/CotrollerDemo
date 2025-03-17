@@ -10,6 +10,9 @@
     <PackageReference Include="Prism.DryIoc" Version="9.0.537" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ControllViewModule\ControllViewModule.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="Arction.Wpf.Charting.LightningChart">
       <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.Charting.LightningChart.dll</HintPath>
     </Reference>

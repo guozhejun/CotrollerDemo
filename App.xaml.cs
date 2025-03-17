@@ -5,6 +5,7 @@ using CotrollerDemo.ViewModels;
 using Prism.DryIoc;
 using Prism.Navigation.Regions;
 using Prism.Modularity;
+using ControllViewModule;
 
 namespace CotrollerDemo
 {
@@ -25,8 +26,7 @@ namespace CotrollerDemo
 
         //protected override void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)
         //{
-        //    moduleCatalog.AddModule<ControllViewModule.ControllViewModuleModule>();
-        //    base.ConfigureModuleCatalog(moduleCatalog);
+        //    moduleCatalog.AddModule<ControllViewModuleModule>();
         //}
 
         protected override void Initialize()
@@ -38,6 +38,7 @@ namespace CotrollerDemo
 
             // 导航到ViewA
             var regionManager = Container.Resolve<IRegionManager>();
+            //regionManager.RequestNavigate("ContentRegion", "ControlView");
             regionManager.RequestNavigate("ContentRegion", "ControllerView");
 
         }

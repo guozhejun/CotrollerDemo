@@ -73,9 +73,9 @@ namespace CotrollerDemo.Models
             {
                 //string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                //string[] hexArray = [.. buffer.Select(b => b.ToString("X2"))];
-                //string text = string.Join("-", hexArray);
-                //Debug.WriteLine(text);
+                string[] hexArray = [.. buffer.Select(b => b.ToString("X2"))];
+                string text = string.Join("-", hexArray);
+                Debug.WriteLine(text);
             }
 
             // 关闭连接

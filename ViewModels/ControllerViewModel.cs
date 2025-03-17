@@ -374,12 +374,12 @@ namespace CotrollerDemo.ViewModels
         {
             await GlobalValues.TcpClient.SendDataClient(1);
 
-            //_timer = new()
-            //{
-            //    Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
-            //};
-            //_timer.Tick += OnTimerTick;
-            //_timer.Start();
+            _timer = new()
+            {
+                Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
+            };
+            _timer.Tick += OnTimerTick;
+            _timer.Start();
 
             IsRunning = true; // 更新运行状态
         }
