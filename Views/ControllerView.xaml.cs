@@ -43,7 +43,7 @@ namespace CotrollerDemo.Views
             }
         }
 
-        ControllerViewModel Controller = new();
+        ControllerViewModel Controller;
         MainWindow main = new();
 
         private void MainView_LayoutUpdated(object sender, EventArgs e)

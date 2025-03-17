@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.13.35825.156 d17.13
+VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CotrollerDemo", "CotrollerDemo.csproj", "{82334C56-4240-4068-A43E-B05D3357A9F1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControllViewModule", "..\ControllViewModule\ControllViewModule.csproj", "{8C746EDA-1479-4F6F-B527-F2DC6EBC5630}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{82334C56-4240-4068-A43E-B05D3357A9F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{82334C56-4240-4068-A43E-B05D3357A9F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{82334C56-4240-4068-A43E-B05D3357A9F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C746EDA-1479-4F6F-B527-F2DC6EBC5630}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C746EDA-1479-4F6F-B527-F2DC6EBC5630}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C746EDA-1479-4F6F-B527-F2DC6EBC5630}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C746EDA-1479-4F6F-B527-F2DC6EBC5630}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

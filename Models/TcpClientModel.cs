@@ -16,7 +16,7 @@ namespace CotrollerDemo.Models
         public NetworkStream stream;
         public TcpListener Tcp;
 
-        public byte[] packLengths = [0x15, 0x15, 0x15, 0x15]; // 包长度
+        public byte[] packLengths = [0x1D, 0, 0, 0]; // 包长度
 
         public byte[] hexValue = { 0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA }; // 发送包头
 
@@ -24,7 +24,7 @@ namespace CotrollerDemo.Models
 
         public int version = 5; // 版本号
 
-        public int packLength = 21; // 包长度
+        public int packLength = 29; // 包长度
 
         public TcpClientModel()
         {

@@ -4,6 +4,7 @@ using System.Windows;
 using CotrollerDemo.ViewModels;
 using Prism.DryIoc;
 using Prism.Navigation.Regions;
+using Prism.Modularity;
 
 namespace CotrollerDemo
 {
@@ -21,6 +22,12 @@ namespace CotrollerDemo
         {
             containerRegistry.RegisterForNavigation<ControllerView, ControllerViewModel>();
         }
+
+        //protected override void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)
+        //{
+        //    moduleCatalog.AddModule<ControllViewModule.ControllViewModuleModule>();
+        //    base.ConfigureModuleCatalog(moduleCatalog);
+        //}
 
         protected override void Initialize()
         {

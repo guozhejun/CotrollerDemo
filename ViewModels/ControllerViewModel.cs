@@ -17,6 +17,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -322,6 +323,7 @@ namespace CotrollerDemo.ViewModels
 
                 if (IsTcpListenerClosed(GlobalValues.TcpClient.Tcp))
                 {
+                    GlobalValues.TcpClient.Tcp = new TcpListener(IPAddress.Any, 9089);
                     GlobalValues.TcpClient.Tcp.Start();
                 }
 
@@ -342,11 +344,6 @@ namespace CotrollerDemo.ViewModels
                 var selectItem = obj as DeviceInfoModel;
 
                 var linkIP = Devices.First(d => d.IpAddress == selectItem.IpAddress);
-
-                if (IsTcpListenerClosed(GlobalValues.TcpClient.Tcp))
-                {
-                    GlobalValues.TcpClient.Tcp.Start();
-                }
 
                 Devices = await GlobalValues.UdpClient.IsConnectDevice(linkIP.IpAddress, false);
 
@@ -377,12 +374,12 @@ namespace CotrollerDemo.ViewModels
         {
             await GlobalValues.TcpClient.SendDataClient(1);
 
-            _timer = new()
-            {
-                Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
-            };
-            _timer.Tick += OnTimerTick;
-            _timer.Start();
+            //_timer = new()
+            //{
+            //    Interval = TimeSpan.FromMilliseconds(1), // 更新间隔
+            //};
+            //_timer.Tick += OnTimerTick;
+            //_timer.Start();
 
             IsRunning = true; // 更新运行状态
         }
@@ -663,7 +660,7 @@ namespace CotrollerDemo.ViewModels
                 }
 
                 // 尝试访问 Socket 的属性来判断状态
-                bool isClosed = !listener.Server.IsBound;
+                bool isClosed = !listener.Server.Connected;
                 return isClosed;
             }
             catch (ObjectDisposedException)
