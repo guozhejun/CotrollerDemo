@@ -88,6 +88,7 @@ namespace CotrollerDemo.ViewModels
             set { SetProperty(ref _isDrop, value); }
         }
 
+        public List<List<float>> SineWaves { get; set; } = [];
 
         public DelegateCommand DeviceSearchCommand { get; set; }
 
@@ -403,16 +404,14 @@ namespace CotrollerDemo.ViewModels
             IsRunning = false; // 更新运行状态
         }
 
-        List<List<float>> sineWaves = [];
-
         /// <summary>
-        /// 定时器触发事件
+        /// 更新曲线数据
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void UpdateSeriesData()
         {
-            sineWaves = GlobalValues.TcpClient.SineWaveList;
+            SineWaves = GlobalValues.TcpClient.SineWaveList;
             Task.Run(async () =>
             {
                 while (true)
@@ -423,15 +422,13 @@ namespace CotrollerDemo.ViewModels
                         App.Current.Dispatcher.Invoke(() =>
                         {
                             Chart.BeginUpdate();
-                            for (int i = 0; i < sineWaves.Count; i++)
+                            for (int i = 0; i < SineWaves.Count; i++)
                             {
-                                if (_pointCount <= 1023 && sineWaves[i].Count >= 1024)
+                                if (_pointCount <= 1023 && SineWaves[i].Count >= 1024)
                                 {
-                                    //_dataSeries[i][_pointCount] = new SeriesPoint(_pointCount, Convert.ToDouble(sineWaves[i][_pointCount]));
-
                                     series = Chart.ViewXY.PointLineSeries[i];
-                                    series.AddPoints([new SeriesPoint(_pointCount, Convert.ToDouble(sineWaves[i][_pointCount]))], false);
-                                    Debug.WriteLine($"Curve {i + 1} : {_pointCount} - {Convert.ToDouble(sineWaves[i][_pointCount])}");
+                                    series.AddPoints([new SeriesPoint(_pointCount, Convert.ToDouble(SineWaves[i][_pointCount]))], false);
+                                    //Debug.WriteLine($"Curve {i + 1} : {_pointCount} - {Convert.ToDouble(SineWaves[i][_pointCount])}");
                                 }
                             }
 
@@ -439,9 +436,9 @@ namespace CotrollerDemo.ViewModels
 
                             if (_pointCount >= MaxPoints)
                             {
-                                SaveData(sineWaves);
+                                SaveData(SineWaves);
 
-                                sineWaves = GlobalValues.TcpClient.SineWaveList;
+                                SineWaves = GlobalValues.TcpClient.SineWaveList;
 
                                 _pointCount = 0;
 
@@ -715,10 +712,8 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         private void ClearFolder()
         {
-
             try
             {
-
                 if ((DialogResult)DXMessageBox.Show("是否清空文件夹?", "提示", MessageBoxButton.YesNo) == DialogResult.Yes)
                 {
                     // 清空文件夹中的所有文件

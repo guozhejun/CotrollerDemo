@@ -64,6 +64,11 @@ namespace CotrollerDemo.Views
             Controller.Chart.Height = ContentBase.ActualHeight;
         }
 
+        /// <summary>
+        /// 拖拽文件触发事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ListBoxEdit_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             try
@@ -79,6 +84,11 @@ namespace CotrollerDemo.Views
             }
         }
 
+        /// <summary>
+        /// 拖拽文件到曲线图中
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         public void LightingChartItem_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.StringFormat))
@@ -115,7 +125,7 @@ namespace CotrollerDemo.Views
                         yAxis.Units.Text = null;
                         yAxis.AutoDivSeparationPercent = 0;
                         yAxis.Visible = true;
-                        yAxis.SetRange(-5, 10); // 设置Y轴范围
+                        yAxis.SetRange(-2, 10); // 设置Y轴范围
                         Controller.Chart.ViewXY.YAxes.Add(yAxis);
 
 

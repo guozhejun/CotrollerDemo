@@ -20,7 +20,10 @@ namespace CotrollerDemo.Models
 
         public static List<List<float>> GlobalFloats { get; set; } = [];
 
-
+        /// <summary>
+        /// 获取本机IP地址
+        /// </summary>
+        /// <returns></returns>
         public static IPAddress GetIpAdderss()
         {
             string hostName = Dns.GetHostName();

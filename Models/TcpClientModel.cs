@@ -42,8 +42,6 @@ namespace CotrollerDemo.Models
 
         public float[] floatArray = new float[256];
 
-        public int SegmentCount;
-
         public int ChannelID;
 
         public List<List<float>> SineWaveList { get; set; } = [];
@@ -63,6 +61,9 @@ namespace CotrollerDemo.Models
             ProcessData();
         }
 
+        /// <summary>
+        /// 开始监听Tcp服务端
+        /// </summary>
         public void StartTcpListen()
         {
             Task.Run(async () =>
@@ -115,6 +116,9 @@ namespace CotrollerDemo.Models
             }
         }
 
+        /// <summary>
+        /// 处理数据
+        /// </summary>
         private void ProcessData()
         {
             Task.Run(async () =>
@@ -152,6 +156,11 @@ namespace CotrollerDemo.Models
             });
         }
 
+        /// <summary>
+        /// 将字节数组转换为浮点数数组
+        /// </summary>
+        /// <param name="byteArray"></param>
+        /// <returns></returns>
         private float[] ConvertByteToFloat(byte[] byteArray)
         {
             // 每 4 个字节转换为一个 float
