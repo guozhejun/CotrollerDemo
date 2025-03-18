@@ -35,6 +35,7 @@
                     HorizontalAlignment="Left"
                     VerticalAlignment="Stretch"
                     dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
+                    IsEnabled="{Binding IsDrop}"
                     ItemsSource="{Binding FileNames}"
                     PreviewMouseMove="ListBoxEdit_PreviewMouseMove" />
             </dxlc:LayoutItem>
@@ -103,6 +104,7 @@
                         <dx:SimpleButton
                             Height="30"
                             Margin="5,0"
+                            Command="{Binding DeviceQueryCommand}"
                             Content="设备查询" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">

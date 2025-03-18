@@ -26,7 +26,7 @@ namespace CotrollerDemo.Models
 
         IPEndPoint receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
 
-        private UdpClient udpServer;
+        public UdpClient udpServer;
 
         public int DeviceConnectState = 0; // 设备连接状态
 
@@ -36,15 +36,14 @@ namespace CotrollerDemo.Models
 
         }
 
-        public async Task<ObservableCollection<DeviceInfoModel>> StartListen(string ipAddress)
+        public async Task<ObservableCollection<DeviceInfoModel>> StartListen()
         {
             try
             {
                 ObservableCollection<DeviceInfoModel> Devices = [];
                 await Task.Run(() =>
                  {
-
-                     serverIp = IPAddress.Parse(ipAddress);
+                     serverIp = GlobalValues.GetIpAdderss();
                      int serverPort = 8080;
                      udpServer ??= new(serverPort);
 
@@ -53,11 +52,11 @@ namespace CotrollerDemo.Models
                      byte[] bufferBytes =
                      [
                          .. hexValue,
-                    .. BitConverter.GetBytes(version),
-                    .. typeValues,
-                    .. BitConverter.GetBytes(packLength),
-                    .. serverIp.GetAddressBytes(),
-                    .. GetMacAddress()
+                         .. BitConverter.GetBytes(version),
+                         .. typeValues,
+                         .. BitConverter.GetBytes(packLength),
+                         .. serverIp.GetAddressBytes(),
+                         .. GetMacAddress()
                      ];
 
                      udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
@@ -94,25 +93,24 @@ namespace CotrollerDemo.Models
                      }
 
                  });
+
                 return Devices;
 
             }
-            catch (Exception)
+            catch (ArgumentNullException)
             {
-
-                throw;
+                return [];
             }
         }
-
 
         /// <summary>
         /// 连接/断开设备
         /// </summary>
         /// <param name="iPEndPoint"></param>
         /// <param name="IsConnect">是否连接</param>
-        public async Task<ObservableCollection<DeviceInfoModel>> IsConnectDevice(IPAddress address, bool IsConnect)
+        public void IsConnectDevice(bool IsConnect)
         {
-            byte[] typeValues = []; // 类型值
+            byte[] typeValues; // 类型值
             ObservableCollection<DeviceInfoModel> DeviceList = [];
 
             if (IsConnect)
@@ -137,18 +135,8 @@ namespace CotrollerDemo.Models
             udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
 
             // 接收UDP服务端的响应
-            byte[] receivedBytes = udpServer.Receive(ref receivePoint);
+            udpServer.Receive(ref receivePoint);
 
-            if (receivedBytes.Last() == 0 && DeviceConnectState != 1 && IsConnect)
-            {
-                DeviceList = await StartListen(address.ToString());
-            }
-            else if (receivedBytes.Last() == 0 && DeviceConnectState == 1 && !IsConnect)
-            {
-                DeviceList = await StartListen(address.ToString());
-            }
-
-            return DeviceList;
         }
 
         /// <summary>

@@ -23,12 +23,6 @@ namespace CotrollerDemo
             containerRegistry.RegisterForNavigation<ControllerView, ControllerViewModel>();
         }
 
-        //protected override void ConfigureModuleCatalog(IModuleCatalog moduleCatalog)
-        //{
-        //    moduleCatalog.AddModule<ControllViewModule.ControllViewModuleModule>();
-        //    base.ConfigureModuleCatalog(moduleCatalog);
-        //}
-
         protected override void Initialize()
         {
             base.Initialize();

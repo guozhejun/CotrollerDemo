@@ -1,4 +1,7 @@
-﻿using System.Windows;
+﻿using CotrollerDemo.Models;
+using System;
+using System.Threading.Tasks;
+using System.Windows;
 
 namespace CotrollerDemo.Views
 {
@@ -10,6 +13,15 @@ namespace CotrollerDemo.Views
         public MainWindow()
         {
             InitializeComponent();
+            this.Closed += MainWindow_Closed;
         }
+
+
+
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            Environment.Exit(0);
+        }
+
     }
 }
