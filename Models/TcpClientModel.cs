@@ -100,22 +100,10 @@ namespace CotrollerDemo.Models
             // 读取客户端发送的数据
             while ((bytesRead = await stream.ReadAsync(buffer)) != 0)
             {
-
-                if (_dataQueue.Count > 1000)
-                {
-                    byte[] removeData;
-                    _dataQueue.TryDequeue(out removeData);
-                }
-                else
-                {
-                    if (buffer.Length == 1072)
-                    {
-                        // 将数据放入队列
-                        byte[] data = new byte[bytesRead];
-                        Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
-                        _dataQueue.Enqueue(data);
-                    }
-                }
+                // 将数据放入队列
+                byte[] data = new byte[bytesRead];
+                Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
+                _dataQueue.Enqueue(data);
             }
         }
 
@@ -145,10 +133,10 @@ namespace CotrollerDemo.Models
                                 SineWaveList[ChannelID].Add(data);
                             });
 
-                            if (SineWaveList[ChannelID].Count > 1024)
-                            {
-                                SineWaveList[ChannelID].RemoveRange(0, SineWaveList[ChannelID].Count - 1024);
-                            }
+                            //if (SineWaveList[ChannelID].Count > 1024)
+                            //{
+                            //    SineWaveList[ChannelID].RemoveRange(0, SineWaveList[ChannelID].Count - 1024);
+                            //}
                         }
                         else
                         {

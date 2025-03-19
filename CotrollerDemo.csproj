@@ -13,5 +13,8 @@
     <Reference Include="Arction.Wpf.Charting.LightningChart">
       <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.Charting.LightningChart.dll</HintPath>
     </Reference>
+    <Reference Include="Arction.Wpf.SignalProcessing.SignalTools">
+      <HintPath>C:\Program Files (x86)\Arction\LightningChart .NET SDK v.10\LibNET4\Arction.Wpf.SignalProcessing.SignalTools.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

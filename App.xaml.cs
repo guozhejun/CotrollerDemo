@@ -22,7 +22,6 @@ namespace CotrollerDemo
         {
             containerRegistry.RegisterForNavigation<ControllerView, ControllerViewModel>();
         }
-
         protected override void Initialize()
         {
             base.Initialize();

@@ -223,10 +223,6 @@ namespace CotrollerDemo.ViewModels
 
             Chart.Title.Visible = false;
 
-            ///只允许水平平移和鼠标滚轮缩放
-            Chart.ViewXY.ZoomPanOptions.PanDirection = PanDirection.Horizontal;
-            Chart.ViewXY.ZoomPanOptions.WheelZooming = WheelZooming.Horizontal;
-
             Color lineBaseColor = GenerateUniqueColor();
 
             ViewXY view = Chart.ViewXY;
@@ -236,6 +232,10 @@ namespace CotrollerDemo.ViewModels
 
             // 设置X轴
             view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling; // 设置X轴范围
+            view.XAxes[0].AllowUserInteraction = true;
+            view.XAxes[0].AllowScrolling = false;
+            view.XAxes[0].OwnerView.DropOldEventMarkers = true;
+            view.XAxes[0].OwnerView.DropOldSeriesData = true;
             view.XAxes[0].SetRange(0, 1024); // 设置X轴范围
             view.XAxes[0].ValueType = AxisValueType.Number; // 设置X轴数据类型
             view.XAxes[0].AutoFormatLabels = false; // 设置X轴标签自动格式化
@@ -310,40 +310,36 @@ namespace CotrollerDemo.ViewModels
 
                 view.PointLineSeries.Add(series);
 
-                seriesPoints.Add(new SeriesPoint[MaxPoints]);
-                for (int j = 0; j < MaxPoints; j++)
-                {
-                    seriesPoints[i][j] = new SeriesPoint(); // 初始数据为0
-                }
-
             }
             //添加注释以显示游标值
-            AnnotationXY cursorValueDisplay = new(Chart.ViewXY, Chart.ViewXY.XAxes[0], Chart.ViewXY.YAxes[0])
+            AnnotationXY annot = new(Chart.ViewXY, Chart.ViewXY.XAxes[0], Chart.ViewXY.YAxes[0])
             {
-                Style = AnnotationStyle.RoundedCallout,
-                LocationCoordinateSystem = CoordinateSystem.RelativeCoordinatesToTarget
+                Style = AnnotationStyle.Rectangle,
+                LocationCoordinateSystem = CoordinateSystem.RelativeCoordinatesToTarget,
             };
-            cursorValueDisplay.LocationRelativeOffset.X = 130;
-            cursorValueDisplay.LocationRelativeOffset.Y = -200;
-            cursorValueDisplay.Sizing = AnnotationXYSizing.Automatic;
-            cursorValueDisplay.TextStyle.Color = Colors.Black;
-            cursorValueDisplay.Text = "";
-            cursorValueDisplay.AllowTargetMove = false;
-            cursorValueDisplay.Fill.Color = Colors.White;
-            cursorValueDisplay.Fill.GradientColor = Color.FromArgb(120, color.R, color.G, color.B);
-            cursorValueDisplay.BorderVisible = false;
-            cursorValueDisplay.Visible = false;
-            Chart.ViewXY.Annotations.Add(cursorValueDisplay);
+            annot.LocationRelativeOffset.X = -50;
+            annot.LocationRelativeOffset.Y = -25;
+            annot.Sizing = AnnotationXYSizing.Automatic;
+            annot.TextStyle.Color = Colors.Black;
+            annot.Text = "";
+            annot.AllowTargetMove = false;
+            annot.AllowAnchorAdjust = false;
+            annot.AllowRotate = false;
+            annot.AllowResize = false;
+            annot.Fill.Color = Colors.White;
+            annot.Fill.GradientColor = Color.FromArgb(120, color.R, color.G, color.B);
+            annot.BorderVisible = false;
+            annot.AllowUserInteraction = false;
+            annot.Visible = false;
+            Chart.ViewXY.Annotations.Add(annot);
 
             //添加光标
             LineSeriesCursor cursor = new(Chart.ViewXY, Chart.ViewXY.XAxes[0])
             {
-                ValueAtXAxis = 100,
-                Visible = true
+                Visible = true,
+                SnapToPoints = true
             };
             cursor.LineStyle.Color = Color.FromArgb(150, 255, 0, 0);
-            cursor.SnapToPoints = true;
-            cursor.Behind = true;
             cursor.TrackPoint.Color1 = Colors.White;
             Chart.ViewXY.LineSeriesCursors.Add(cursor);
             cursor.PositionChanged += Cursor_PositionChanged;
@@ -490,33 +486,36 @@ namespace CotrollerDemo.ViewModels
         /// <param name="e"></param>
         private void UpdateSeriesData()
         {
-            SineWaves = GlobalValues.TcpClient.SineWaveList;
+            double position = 0;
             Task.Run(async () =>
             {
                 while (true)
                 {
                     if (IsRunning)
                     {
-                        PointLineSeries series;
                         App.Current.Dispatcher.Invoke(() =>
                         {
                             Chart.BeginUpdate();
-                            for (int i = 0; i < SineWaves.Count; i++)
+                            for (int i = 0; i < GlobalValues.TcpClient.SineWaveList.Count; i++)
                             {
-                                if (_pointCount <= 1023 && SineWaves[i].Count >= 1024)
+                                if (GlobalValues.TcpClient.SineWaveList[i].Count > 0)
                                 {
-                                    series = Chart.ViewXY.PointLineSeries[i];
-                                    series.AddPoints([new SeriesPoint(_pointCount, Convert.ToDouble(SineWaves[i][_pointCount]))], false);
+                                    var series = Chart.ViewXY.PointLineSeries[i];
+                                    series.AddPoints([new SeriesPoint(_pointCount, Convert.ToDouble(GlobalValues.TcpClient.SineWaveList[i][_pointCount]))], false);
                                 }
                             }
+                            position += 1;
+                            Chart.ViewXY.XAxes[0].ScrollPosition = position;
 
                             _pointCount++;
-
-                            if (_pointCount >= MaxPoints)
+                            /*_pointCount = 1023;
+                            if (_pointCount < MaxPoints - 1)
                             {
-                                SaveData(SineWaves);
+                            }
+                            else
+                            {
+                                //SaveData(SineWaves);
 
-                                SineWaves = GlobalValues.TcpClient.SineWaveList;
 
                                 _pointCount = 0;
 
@@ -529,13 +528,13 @@ namespace CotrollerDemo.ViewModels
                                     //{
                                     //    seriesPoints[i][j] = new SeriesPoint(); // 初始数据为0
                                     //}
-                                    Chart.ViewXY.PointLineSeries[i].Points = [];
+                                    //Chart.ViewXY.PointLineSeries[i].Points = [];
                                 }
-                            }
+                            }*/
                             Chart.EndUpdate();
                         });
                     }
-                    await Task.Delay(10);
+                    await Task.Delay(1);
                 }
             });
 
@@ -611,13 +610,13 @@ namespace CotrollerDemo.ViewModels
 
 
             StringBuilder sb = new();
+            StringBuilder sc = new();
             int seriesNumber = 1;
 
             string value;
 
             foreach (PointLineSeries series in Chart.ViewXY.PointLineSeries)
             {
-
                 //如果批注中的光标值没有显示在光标旁边，则在图表的右侧显示其中的系列标题和光标值
                 series.Title.Visible = false;
                 string title = series.Title.Text.Split(':')[0];
@@ -634,11 +633,12 @@ namespace CotrollerDemo.ViewModels
                 seriesNumber++;
             }
 
-            sb.AppendLine("");
-            sb.AppendLine("X: " + cursor.ValueAtXAxis.ToString());
+            //sb.AppendLine("");
+            sc.AppendLine("X: " + cursor.ValueAtXAxis.ToString());
 
+            cursorValueDisplay.TargetScreenCoords = new PointDoubleXY(cursor.ValueAtXAxis, 0);
             //设置文本
-            cursorValueDisplay.Text = sb.ToString();
+            cursorValueDisplay.Text = sc.ToString();
             cursorValueDisplay.Visible = true;
             Chart.EndUpdate();
         }
