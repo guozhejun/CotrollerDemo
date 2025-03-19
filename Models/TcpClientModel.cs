@@ -34,19 +34,19 @@ namespace CotrollerDemo.Models
 
         public int packLength = 29; // 包长度
 
-        public string[] packHead = new string[48];
+        public string[] packHead = new string[48]; // 包头
 
-        public float[][] sineWaveData = new float[8][];
+        public float[][] sineWaveData = new float[8][]; // 正弦波数据
 
-        public byte[] byteArray = new byte[1024];
+        public byte[] byteArray = new byte[1024]; // 字节数组
 
-        public float[] floatArray = new float[256];
+        public float[] floatArray = new float[256]; // 浮点数数组
 
-        public int ChannelID;
+        public int ChannelID; // 通道ID
 
-        public List<List<float>> SineWaveList { get; set; } = [];
+        public List<List<float>> SineWaveList { get; set; } = []; // 正弦波数据
 
-        private ConcurrentQueue<byte[]> _dataQueue = [];
+        private ConcurrentQueue<byte[]> _dataQueue = []; // 数据队列
 
         public TcpClientModel()
         {
@@ -108,10 +108,13 @@ namespace CotrollerDemo.Models
                 }
                 else
                 {
-                    // 将数据放入队列
-                    byte[] data = new byte[bytesRead];
-                    Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
-                    _dataQueue.Enqueue(data);
+                    if (buffer.Length == 1072)
+                    {
+                        // 将数据放入队列
+                        byte[] data = new byte[bytesRead];
+                        Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
+                        _dataQueue.Enqueue(data);
+                    }
                 }
             }
         }
@@ -161,7 +164,7 @@ namespace CotrollerDemo.Models
         /// </summary>
         /// <param name="byteArray"></param>
         /// <returns></returns>
-        private float[] ConvertByteToFloat(byte[] byteArray)
+        private static float[] ConvertByteToFloat(byte[] byteArray)
         {
             // 每 4 个字节转换为一个 float
             int floatCount = byteArray.Length / 4;

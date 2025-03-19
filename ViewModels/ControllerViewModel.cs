@@ -19,6 +19,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -33,6 +34,9 @@ namespace CotrollerDemo.ViewModels
     {
         private ObservableCollection<string> _fileNames = [];
 
+        /// <summary>
+        /// 文件名集合
+        /// </summary>
         public ObservableCollection<string> FileNames
         {
             get { return _fileNames; }
@@ -40,6 +44,10 @@ namespace CotrollerDemo.ViewModels
         }
 
         private ObservableCollection<DeviceInfoModel> _devices = [];
+
+        /// <summary>
+        /// 设备列表
+        /// </summary>
         public ObservableCollection<DeviceInfoModel> Devices
         {
             get { return _devices; }
@@ -47,6 +55,10 @@ namespace CotrollerDemo.ViewModels
         }
 
         private object _chartContent = new();
+
+        /// <summary>
+        /// 图表内容
+        /// </summary>
         public object ChartContent
         {
             get { return _chartContent; }
@@ -55,18 +67,42 @@ namespace CotrollerDemo.ViewModels
 
         public LightningChart Chart { get; set; } = new();
 
+        private List<SeriesPoint[]> seriesPoints = [];
+
+        public List<SeriesPoint[]> SeriesPoints
+        {
+            get { return seriesPoints; }
+            set { SetProperty(ref seriesPoints, value); }
+        }
+
+
+        /// <summary>
+        /// 生成点数    
+        /// </summary>
         private int _pointCount = 0;
 
+        /// <summary>
+        /// 最大生成点数
+        /// </summary>
         private const int MaxPoints = 1024;
 
+        /// <summary>
+        /// 曲线数量
+        /// </summary>
         private int _seriseCount = 8;
 
+        /// <summary>
+        /// 存放已生成的颜色
+        /// </summary>
         private static HashSet<Color> generatedColors = [];
 
         // 存放路径
         public string folderPath = @"D:\Datas";
 
         private bool _isRunning;
+        /// <summary>
+        /// 是否正在运行
+        /// </summary>
         public bool IsRunning
         {
             get { return _isRunning; }
@@ -74,43 +110,77 @@ namespace CotrollerDemo.ViewModels
             {
                 GlobalValues.IsRunning = value;
                 IsDrop = !value;
-                Chart.ViewXY.LineSeriesCursors[0].Visible = !value;
-                Chart.ViewXY.Annotations[0].Visible = !value;
                 SetProperty(ref _isRunning, value);
             }
         }
 
         private bool _isDrop;
 
+        /// <summary>
+        /// 是否可拖拽
+        /// </summary>
         public bool IsDrop
         {
             get { return _isDrop; }
             set { SetProperty(ref _isDrop, value); }
         }
 
+        /// <summary>
+        /// 正弦波数据
+        /// </summary>
         public List<List<float>> SineWaves { get; set; } = [];
-
-        public DelegateCommand DeviceSearchCommand { get; set; }
 
         //public DelegateCommand<object> SaveDataCommand { get; set; }
 
+        /// <summary>
+        /// 开始试验
+        /// </summary>
         public AsyncDelegateCommand StartTestCommand { get; set; }
 
+        /// <summary>
+        /// 停止试验
+        /// </summary>
         public AsyncDelegateCommand StopTestCommand { get; set; }
 
+        /// <summary>
+        /// 查询设备
+        /// </summary>
         public DelegateCommand DeviceQueryCommand { get; set; }
 
+        /// <summary>
+        /// 打开文件夹
+        /// </summary>
         public DelegateCommand OpenFolderCommand { get; set; }
 
+        /// <summary>
+        /// 清空文件夹
+        /// </summary>
         public DelegateCommand ClearFolderCommand { get; set; }
 
+        /// <summary>
+        /// 连接设备
+        /// </summary>
         public DelegateCommand<object> ConnectCommand { get; set; }
 
+        /// <summary>
+        /// 断开连接
+        /// </summary>
         public DelegateCommand<object> DisconnectCommand { get; set; }
 
+        /// <summary>
+        /// 切换图例
+        /// </summary>
         public DelegateCommand<object> SwitchLegendCommand { get; set; }
 
+        /// <summary>
+        /// 删除文件
+        /// </summary>
         public DelegateCommand<object> DeleteFileCommand { get; set; }
+
+        /// <summary>
+        /// 重置图表缩放
+        /// </summary>
+        public DelegateCommand ZoomToFitCommand { get; set; }
 
         public ControllerViewModel()
         {
@@ -129,10 +199,19 @@ namespace CotrollerDemo.ViewModels
             OpenFolderCommand = new DelegateCommand(OpenFolder);
             DeviceQueryCommand = new DelegateCommand(UpdateDeviceList);
             ClearFolderCommand = new DelegateCommand(ClearFolder);
+            ZoomToFitCommand = new DelegateCommand(ZoomToFitChart);
             ConnectCommand = new DelegateCommand<object>(ConnectDevice);
             DisconnectCommand = new DelegateCommand<object>(DisconnectDevice);
             SwitchLegendCommand = new DelegateCommand<object>(SwitchLegend);
             DeleteFileCommand = new DelegateCommand<object>(DeleteFile);
+        }
+
+        /// <summary>
+        /// 重置图表缩放
+        /// </summary>
+        private void ZoomToFitChart()
+        {
+            Chart.ViewXY.ZoomToFit();
         }
 
         /// <summary>
@@ -148,9 +227,14 @@ namespace CotrollerDemo.ViewModels
             Chart.ViewXY.ZoomPanOptions.PanDirection = PanDirection.Horizontal;
             Chart.ViewXY.ZoomPanOptions.WheelZooming = WheelZooming.Horizontal;
 
+            Color lineBaseColor = GenerateUniqueColor();
 
             ViewXY view = Chart.ViewXY;
 
+            DisposeAllAndClear(view.PointLineSeries);
+            DisposeAllAndClear(view.YAxes);
+
+            // 设置X轴
             view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling; // 设置X轴范围
             view.XAxes[0].SetRange(0, 1024); // 设置X轴范围
             view.XAxes[0].ValueType = AxisValueType.Number; // 设置X轴数据类型
@@ -161,66 +245,53 @@ namespace CotrollerDemo.ViewModels
             view.XAxes[0].MajorGrid.Visible = false;
             view.XAxes[0].MinorGrid.Visible = false;
 
+            // 设置Y轴
+            var yAxis = new AxisY(view);
+            yAxis.Title.Text = null; // 设置Y轴标题
+            yAxis.Title.Visible = false;
+            yAxis.Title.Angle = 0;
+            yAxis.Title.Color = lineBaseColor;
+            yAxis.Units.Text = null;
+            yAxis.Units.Visible = false;
+            yAxis.MajorGrid.Visible = false;
+            yAxis.MinorGrid.Visible = false;
+            yAxis.MajorGrid.Pattern = LinePattern.Solid;
+            yAxis.AutoDivSeparationPercent = 0;
+            yAxis.Visible = true;
+            yAxis.SetRange(-5, 10); // 设置Y轴范围
+            yAxis.MajorGrid.Color = Colors.LightGray;
+            view.YAxes.Add(yAxis);
+
+            // 设置图例
             view.LegendBoxes[0].Layout = LegendBoxLayout.Vertical;
             view.LegendBoxes[0].Fill.Color = Colors.Transparent;
             view.LegendBoxes[0].Shadow.Color = Colors.Transparent;
 
+            // 设置Y轴
             view.AxisLayout.AxisGridStrips = XYAxisGridStrips.X;
             view.AxisLayout.YAxesLayout = YAxesLayout.Stacked; // 设置Y轴布局
             view.AxisLayout.SegmentsGap = 2; // 设置Y轴间隔
             view.AxisLayout.YAxisAutoPlacement = YAxisAutoPlacement.LeftThenRight; // 设置Y轴标题位置
             view.AxisLayout.YAxisTitleAutoPlacement = true; // 设置Y轴标题自动位置
-
             view.AxisLayout.AutoAdjustMargins = false; // 设置是否自动调整边距
 
-            DisposeAllAndClear(view.PointLineSeries);
-            DisposeAllAndClear(view.YAxes);
 
             Color color = Colors.Black;
 
             // 创建8条曲线，每条曲线颜色不同
             for (int i = 0; i < _seriseCount; i++)
             {
-                Color lineBaseColor = GenerateUniqueColor();
-                // 创建新的Y轴
-                var yAxis = new AxisY(view);
-                yAxis.Title.Text = $"Y{i + 1}"; // 设置Y轴标题
-                yAxis.Title.Visible = true;
-                yAxis.Title.Angle = 0;
-                yAxis.Title.Color = lineBaseColor;
-                yAxis.Units.Text = null;
-                yAxis.Units.Visible = false;
-                yAxis.MajorGrid.Visible = false;
-                yAxis.MinorGrid.Visible = false;
-                yAxis.MajorGrid.Pattern = LinePattern.Solid;
-                yAxis.AutoDivSeparationPercent = 0;
-                yAxis.Visible = true;
-                yAxis.SetRange(-5, 10); // 设置Y轴范围
-                yAxis.MajorGrid.Color = Colors.LightGray;
-                view.YAxes.Add(yAxis);
-
-                if (i == _seriseCount - 1)
-                {
-                    yAxis.MiniScale.ShowX = true;
-                    yAxis.MiniScale.ShowY = true;
-                    yAxis.MiniScale.Color = Color.FromArgb(255, 255, 204, 0);
-                    yAxis.MiniScale.HorizontalAlign = AlignmentHorizontal.Right;
-                    yAxis.MiniScale.VerticalAlign = AlignmentVertical.Bottom;
-                    yAxis.MiniScale.Offset = new PointIntXY(-30, -30);
-                    yAxis.MiniScale.LabelX.Color = Colors.White;
-                    yAxis.MiniScale.LabelY.Color = Colors.White;
-                    yAxis.MiniScale.PreferredSize = new SizeDoubleXY(50, 50);
-                }
-
-                var series = new PointLineSeries(view, view.XAxes[0], yAxis)
+                // 创建新的曲线
+                var series = new PointLineSeries(view, view.XAxes[0], view.YAxes[0])
                 {
                     Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = $"Curve {i + 1}" }, // 设置曲线标题
                     ScrollModePointsKeepLevel = 1,
                     PointsType = PointsType.Points,
                     AllowUserInteraction = true,
-                    LineStyle = { Color = ChartTools.CalcGradient(lineBaseColor, Colors.White, 50) },
+                    LineStyle = { Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50) },
                 };
 
+                // 双击删除曲线
                 series.MouseDoubleClick += (s, e) =>
                 {
                     var TemporarySeries = s as PointLineSeries;
@@ -238,6 +309,12 @@ namespace CotrollerDemo.ViewModels
                 };
 
                 view.PointLineSeries.Add(series);
+
+                seriesPoints.Add(new SeriesPoint[MaxPoints]);
+                for (int j = 0; j < MaxPoints; j++)
+                {
+                    seriesPoints[i][j] = new SeriesPoint(); // 初始数据为0
+                }
 
             }
             //添加注释以显示游标值
@@ -262,20 +339,22 @@ namespace CotrollerDemo.ViewModels
             LineSeriesCursor cursor = new(Chart.ViewXY, Chart.ViewXY.XAxes[0])
             {
                 ValueAtXAxis = 100,
-                Visible = false
+                Visible = true
             };
             cursor.LineStyle.Color = Color.FromArgb(150, 255, 0, 0);
             cursor.SnapToPoints = true;
+            cursor.Behind = true;
             cursor.TrackPoint.Color1 = Colors.White;
             Chart.ViewXY.LineSeriesCursors.Add(cursor);
-            cursor.PositionChanged += cursor_PositionChanged;
+            cursor.PositionChanged += Cursor_PositionChanged;
 
+            // 重置图表缩放
             Chart.ViewXY.ZoomToFit();
 
-            Chart.AfterRendering += _chart_AfterRendering;
+            Chart.AfterRendering += Chart_AfterRendering;
 
             Chart.EndUpdate();
-            Chart.SizeChanged += new SizeChangedEventHandler(_chart_SizeChanged);
+            Chart.SizeChanged += new SizeChangedEventHandler(Chart_SizeChanged);
 
         }
 
@@ -428,7 +507,6 @@ namespace CotrollerDemo.ViewModels
                                 {
                                     series = Chart.ViewXY.PointLineSeries[i];
                                     series.AddPoints([new SeriesPoint(_pointCount, Convert.ToDouble(SineWaves[i][_pointCount]))], false);
-                                    //Debug.WriteLine($"Curve {i + 1} : {_pointCount} - {Convert.ToDouble(SineWaves[i][_pointCount])}");
                                 }
                             }
 
@@ -446,6 +524,11 @@ namespace CotrollerDemo.ViewModels
 
                                 for (int i = 0; i < _seriseCount; i++)
                                 {
+                                    //seriesPoints.Add(new SeriesPoint[MaxPoints]);
+                                    //for (int j = 0; j < MaxPoints; j++)
+                                    //{
+                                    //    seriesPoints[i][j] = new SeriesPoint(); // 初始数据为0
+                                    //}
                                     Chart.ViewXY.PointLineSeries[i].Points = [];
                                 }
                             }
@@ -463,7 +546,7 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void cursor_PositionChanged(object sender, PositionChangedEventArgs e)
+        private void Cursor_PositionChanged(object sender, PositionChangedEventArgs e)
         {
             //取消正在进行的呈现，因为下面的代码更新了图表。
             e.CancelRendering = true;
@@ -496,14 +579,14 @@ namespace CotrollerDemo.ViewModels
             }
         }
 
-        private void _chart_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void Chart_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             UpdateCursorResult();
         }
 
-        private void _chart_AfterRendering(object sender, AfterRenderingEventArgs e)
+        private void Chart_AfterRendering(object sender, AfterRenderingEventArgs e)
         {
-            Chart.AfterRendering -= _chart_AfterRendering;
+            Chart.AfterRendering -= Chart_AfterRendering;
             UpdateCursorResult();
         }
 
@@ -556,7 +639,7 @@ namespace CotrollerDemo.ViewModels
 
             //设置文本
             cursorValueDisplay.Text = sb.ToString();
-            cursorValueDisplay.Visible = !IsRunning;
+            cursorValueDisplay.Visible = true;
             Chart.EndUpdate();
         }
 

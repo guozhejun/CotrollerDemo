@@ -181,6 +181,15 @@
                             CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
                             Content="隐藏图例" />
                     </dxlc:LayoutItem>
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
+                        <dx:SimpleButton
+                            Height="30"
+                            Command="{Binding ZoomToFitCommand}"
+                            Content="重置缩放" />
+                    </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
         </dxlc:LayoutGroup>

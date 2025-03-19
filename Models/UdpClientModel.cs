@@ -26,7 +26,7 @@ namespace CotrollerDemo.Models
 
         IPEndPoint receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
 
-        public UdpClient udpServer;
+        public UdpClient udpServer; // UDP服务端
 
         public int DeviceConnectState = 0; // 设备连接状态
 

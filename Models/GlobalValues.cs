@@ -10,14 +10,24 @@ namespace CotrollerDemo.Models
 {
     public static class GlobalValues
     {
-        public static string Name { get; set; }
-
+        /// <summary>
+        /// UDP客户端
+        /// </summary>
         public static UdpClientModel UdpClient { get; set; } = new();
 
+        /// <summary>
+        /// TCP客户端
+        /// </summary>
         public static TcpClientModel TcpClient { get; set; } = new();
 
+        /// <summary>
+        /// 是否正在运行
+        /// </summary>
         public static bool IsRunning { get; set; } = false;
 
+        /// <summary>
+        /// 全局浮点数
+        /// </summary>
         public static List<List<float>> GlobalFloats { get; set; } = [];
 
         /// <summary>
