@@ -1,7 +1,9 @@
-﻿using DryIoc.ImTools;
+﻿using DevExpress.Mvvm.Native;
+using DryIoc.ImTools;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -33,77 +35,93 @@ namespace CotrollerDemo.Models
 
         public UdpClientModel()
         {
-
+            serverIp = GlobalValues.GetIpAdderss();
+            int serverPort = 8080;
+            udpServer = new(serverPort);
+            ReceiveData();
         }
 
         /// <summary>
         /// 开始监听UDP接口
         /// </summary>
         /// <returns></returns>
-        public async Task<ObservableCollection<DeviceInfoModel>> StartListen()
+        public void StartUdpListen()
         {
-            try
-            {
-                ObservableCollection<DeviceInfoModel> Devices = [];
-                await Task.Run(() =>
-                 {
-                     serverIp = GlobalValues.GetIpAdderss();
-                     int serverPort = 8080;
-                     udpServer ??= new(serverPort);
+            GlobalValues.Devices = [];
+            byte[] typeValues = [1, 1, 1, 0, 0, 0, 0]; // 类型值
 
-                     byte[] typeValues = [1, 1, 1, 0, 0, 0, 0]; // 类型值
-
-                     byte[] bufferBytes =
-                     [
-                         .. hexValue,
+            byte[] bufferBytes =
+            [
+                .. hexValue,
                          .. BitConverter.GetBytes(version),
                          .. typeValues,
                          .. BitConverter.GetBytes(packLength),
                          .. serverIp.GetAddressBytes(),
                          .. GetMacAddress()
-                     ];
+            ];
 
-                     udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
+            udpServer.SendAsync(bufferBytes, bufferBytes.Length, new(IPAddress.Parse("255.255.255.255"), 9090));
 
-                     // 接收UDP服务端的响应
-                     byte[] receivedBytes = udpServer.Receive(ref receivePoint);
+        }
 
-                     byte[] TemporaryArray = new byte[8];
-
-                     Array.Copy(receivedBytes, TemporaryArray, 8);
-
-                     string[] hexArray = [.. TemporaryArray.Select(b => b.ToString("X2"))];
-
-                     if (receiveValue.SequenceEqual(hexArray))
-                     {
-                         // 获取接收到的IP
-                         byte[] deviceIpByte = new byte[4];
-                         Array.Copy(receivedBytes, receivedBytes.Length - 23, deviceIpByte, 0, 4);
-
-                         // 获取接收到的序列号
-                         byte[] deviceSerialNumByte = new byte[16];
-                         Array.Copy(receivedBytes, receivedBytes.Length - 19, deviceSerialNumByte, 0, 16);
-                         string[] deviceSerialNums = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
-
-                         DeviceConnectState = receivedBytes[31];
-
-                         // 将获取到的数据存到全局变量中
-                         Devices.Add(new()
-                         {
-                             IpAddress = receivePoint.Address,
-                             SerialNum = string.Join(":", deviceSerialNums),
-                             Status = DeviceConnectState is 1 ? "已连接" : "未连接"
-                         });
-                     }
-
-                 });
-
-                return Devices;
-
-            }
-            catch (ArgumentNullException)
+        public void ReceiveData()
+        {
+            try
             {
-                return [];
+                Task.Run(async () =>
+                {
+                    while (true)
+                    {
+                        var result = udpServer.Receive(ref receivePoint);
+
+                        if (result.Length > 0)
+                        {
+                            App.Current.Dispatcher.Invoke(() =>
+                            {
+                                ProcessDataAsync(result);
+                            });
+                        }
+                       await Task.Delay(10);
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.ToString());
+            }
+        }
+
+        public void ProcessDataAsync(byte[] data)
+        {
+            byte[] TemporaryArray = new byte[8];
+
+            Array.Copy(data, TemporaryArray, 8);
+
+            string[] hexArray = [.. TemporaryArray.Select(b => b.ToString("X2"))];
+
+            if (receiveValue.SequenceEqual(hexArray) && data.Length > 29)
+            {
+                // 获取接收到的IP
+                byte[] deviceIpByte = new byte[4];
+                Array.Copy(data, data.Length - 23, deviceIpByte, 0, 4);
+
+                IPAddress linkIp = new(deviceIpByte);
+
+                // 获取接收到的序列号
+                byte[] deviceSerialNumByte = new byte[16];
+                Array.Copy(data, data.Length - 19, deviceSerialNumByte, 0, 16);
+                string[] deviceSerialNums = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
+
+                DeviceConnectState = data[31];
+
+                GlobalValues.Devices.Add(new DeviceInfoModel()
+                {
+                    IpAddress = receivePoint.Address,
+                    SerialNum = string.Join(":", deviceSerialNums),
+                    Status = DeviceConnectState is 1 ? "已连接" : "未连接",
+                    LinkIP = linkIp
+                });
+
             }
         }
 
@@ -112,8 +130,9 @@ namespace CotrollerDemo.Models
         /// </summary>
         /// <param name="iPEndPoint"></param>
         /// <param name="IsConnect">是否连接</param>
-        public void IsConnectDevice(bool IsConnect)
+        public void IsConnectDevice(IPAddress ip, bool IsConnect)
         {
+
             byte[] typeValues; // 类型值
             ObservableCollection<DeviceInfoModel> DeviceList = [];
 
@@ -136,10 +155,7 @@ namespace CotrollerDemo.Models
               .. GetMacAddress()
             ];
 
-            udpServer.Send(bufferBytes, bufferBytes.Length, receivePoint);
-
-            // 接收UDP服务端的响应
-            udpServer.Receive(ref receivePoint);
+            udpServer.Send(bufferBytes, bufferBytes.Length, new IPEndPoint(ip, 9090));
 
         }
 

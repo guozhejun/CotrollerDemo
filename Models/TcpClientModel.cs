@@ -1,4 +1,5 @@
-﻿using DevExpress.Mvvm.Native;
+﻿using DevExpress.Internal.WinApi.Windows.UI.Notifications;
+using DevExpress.Mvvm.Native;
 using DryIoc.ImTools;
 using Microsoft.VisualBasic;
 using System;
@@ -9,9 +10,13 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.ServiceModel.Channels;
 using System.Text;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Windows.Media;
+using System.Windows.Shell;
 using static DevExpress.Utils.HashCodeHelper.Primitives;
 
 namespace CotrollerDemo.Models
@@ -34,8 +39,6 @@ namespace CotrollerDemo.Models
 
         public int packLength = 29; // 包长度
 
-        public string[] packHead = new string[48]; // 包头
-
         public float[][] sineWaveData = new float[8][]; // 正弦波数据
 
         public byte[] byteArray = new byte[1024]; // 字节数组
@@ -44,21 +47,47 @@ namespace CotrollerDemo.Models
 
         public int ChannelID; // 通道ID
 
+        public int Segments; // 分段数
+
+        private Channel<ReceiveData> _dataChannel;
+        public ChannelWriter<ReceiveData> ChannelWriter { get; set; }
+        public ChannelReader<ReceiveData> ChannelReader { get; set; }
+
+        //private Channel<List<ReceiveData>> _dataChannel;
+        //public ChannelWriter<List<ReceiveData>> ChannelWriter { get; set; }
+        //public ChannelReader<List<ReceiveData>> ChannelReader { get; set; }
+
         public List<List<float>> SineWaveList { get; set; } = []; // 正弦波数据
 
-        private ConcurrentQueue<byte[]> _dataQueue = []; // 数据队列
+        public List<ReceiveData> receiveDatas = [];
+
+        public int Num = 0;
+        //public ConcurrentQueue<ReceiveData[]> _dataQueue { get; set; } = []; // 数据队列
+
+        private CancellationTokenSource _cts;
 
         public TcpClientModel()
         {
+            _cts = new CancellationTokenSource();
+            _dataChannel = Channel.CreateUnbounded<ReceiveData>(new UnboundedChannelOptions()
+            {
+                AllowSynchronousContinuations = true,
+                SingleReader = false,
+                SingleWriter = true,
+            });
+            //_dataChannel = Channel.CreateUnbounded<List<ReceiveData>>();
+            ChannelWriter = _dataChannel.Writer;
+            ChannelReader = _dataChannel.Reader;
+
             if (SineWaveList.Count <= 0)
             {
                 for (int i = 0; i < 8; i++)
                 {
                     SineWaveList.Add([]);
-                    //sineWaveData.Append([]);
                 }
             }
-            ProcessData();
+
+
         }
 
         /// <summary>
@@ -73,11 +102,14 @@ namespace CotrollerDemo.Models
                     Tcp = new(GlobalValues.GetIpAdderss(), 9089);
                     Tcp.Start();
 
-                    client = await Tcp.AcceptTcpClientAsync();
+                    client = await Tcp.AcceptTcpClientAsync().ConfigureAwait(false);
+
+                    client.ReceiveBufferSize = 1072;
+                    client.ReceiveTimeout = 3000;
 
                     stream = client.GetStream();
 
-                    await ReceiveDataClient();
+                    ReceiveDataClient();
 
                 }
                 catch (Exception ex)
@@ -87,62 +119,67 @@ namespace CotrollerDemo.Models
             });
         }
 
+        int tempId = -1;
+        int receiveNum = 0;
+        List<ReceiveData> tempReceive = [];
         /// <summary>
         /// 接收客户端发送的数据
         /// </summary>
         /// <param name="client"></param>
         /// <returns></returns>
-        public async Task ReceiveDataClient()
-        {
-            byte[] buffer = new byte[1072];
-
-            int bytesRead;
-            // 读取客户端发送的数据
-            while ((bytesRead = await stream.ReadAsync(buffer)) != 0)
-            {
-                // 将数据放入队列
-                byte[] data = new byte[bytesRead];
-                Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
-                _dataQueue.Enqueue(data);
-            }
-        }
-
-        /// <summary>
-        /// 处理数据
-        /// </summary>
-        private void ProcessData()
+        public void ReceiveDataClient()
         {
             Task.Run(async () =>
             {
-                while (true)
+                byte[] Buffers = new byte[1072];
+                int bytesRead;
+                while ((bytesRead = await stream.ReadAsync(Buffers)) != 0 && !_cts.IsCancellationRequested)
                 {
-                    if (GlobalValues.IsRunning)
+                    // 将数据放入队列
+                    byte[] data = new byte[bytesRead];
+                    Buffer.BlockCopy(Buffers, 0, data, 0, bytesRead);
+
+                    // 处理数据
+
+                    ChannelID = Buffers[40];
+
+                    Segments = Buffers[34];
+
+                    floatArray = ConvertByteToFloat([.. Buffers.Skip(48)]);
+
+                    ReceiveData receiveData = new()
                     {
-                        if (_dataQueue.TryDequeue(out byte[] data) && data.Length == 1072)
-                        {
-                            packHead = [.. data.Take(48).Select(x => x.ToString("X2"))];
+                        ChannelID = ChannelID,
+                        Segments = Segments,
+                        Data = floatArray
+                    };
 
-                            ChannelID = Int32.Parse(packHead[40]);
-
-                            byteArray = [.. data.Skip(48)];
-
-                            floatArray = ConvertByteToFloat(byteArray);
-
-                            floatArray.ForEach(data =>
-                            {
-                                SineWaveList[ChannelID].Add(data);
-                            });
-
-                            //if (SineWaveList[ChannelID].Count > 1024)
-                            //{
-                            //    SineWaveList[ChannelID].RemoveRange(0, SineWaveList[ChannelID].Count - 1024);
-                            //}
-                        }
-                        else
-                        {
-                            await Task.Delay(10); // 队列为空时稍作等待
-                        }
+                    if (tempId != ChannelID && receiveData.Data.Length == 256)
+                    {
+                        await ChannelWriter.WriteAsync(receiveData);
+                        tempId = ChannelID;
                     }
+
+                    //if (tempId != ChannelID)
+                    //{
+                    //    receiveDatas.Add(receiveData);
+                    //    tempId = ChannelID;
+
+                    //    if (ChannelID == 7 && Segments == 1)
+                    //    {
+                    //        receiveNum++;
+                    //        tempReceive.AddRange(receiveDatas);
+
+                    //        if (receiveNum >= 2)
+                    //        {
+                    //            Debug.WriteLine("tempReceive.Count：" + tempReceive.Count);
+                    //            await ChannelWriter.WriteAsync(tempReceive);
+                    //            tempReceive.Clear();
+                    //            receiveNum = 0;
+                    //        }
+                    //    }
+                    //}
+
                 }
             });
         }
@@ -152,7 +189,7 @@ namespace CotrollerDemo.Models
         /// </summary>
         /// <param name="byteArray"></param>
         /// <returns></returns>
-        private static float[] ConvertByteToFloat(byte[] byteArray)
+        private float[] ConvertByteToFloat(byte[] byteArray)
         {
             // 每 4 个字节转换为一个 float
             int floatCount = byteArray.Length / 4;
@@ -201,4 +238,5 @@ namespace CotrollerDemo.Models
             }
         }
     }
+
 }

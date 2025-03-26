@@ -30,6 +30,14 @@ namespace CotrollerDemo.Models
         /// </summary>
         public static List<List<float>> GlobalFloats { get; set; } = [];
 
+        public static List<List<float>> GlobalFloats1 { get; set; } = [];
+
+        public static bool IsResult { get; set; } = true;
+
+        public static ObservableCollection<DeviceInfoModel> Devices { get; set; } = [];
+
+        //public static ReceiveData receiveData { get; set; } = new();
+
         /// <summary>
         /// 获取本机IP地址
         /// </summary>
@@ -53,5 +61,8 @@ namespace CotrollerDemo.Models
                 return IPAddress.Loopback;
             }
         }
+
+
     }
+
 }

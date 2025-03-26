@@ -8,6 +8,7 @@ using DevExpress.Utils.CommonDialogs.Internal;
 using DevExpress.Xpf.Core;
 using DevExpress.Xpf.Core.ConditionalFormattingManager;
 using DevExpress.Xpf.Editors;
+using DXApplication.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -57,11 +58,16 @@ namespace CotrollerDemo.Views
 
         }
 
-        private void ContentBase_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             Controller = DataContext as ControllerViewModel;
-            Controller.Chart.Width = ContentBase.ActualWidth;
-            Controller.Chart.Height = ContentBase.ActualHeight;
+            if (!CanvasBase.Children.Contains(Controller.Chart))
+            {
+                CanvasBase.Children.Add(Controller.Chart);
+            }
+            Controller.Chart.Width = CanvasBase.ActualWidth;
+            Controller.Chart.Height = CanvasBase.ActualHeight;
+
         }
 
         /// <summary>
@@ -102,44 +108,27 @@ namespace CotrollerDemo.Views
                     // 读取文件的所有行并存储到数组中
                     string[] lines = File.ReadAllLines(filePath);
                     string[][] datas = new string[lines.Length][];
+                    float[] YDatas = new float[lines.Length];
 
                     for (int i = 0; i < lines.Length; i++)
                     {
                         datas[i] = lines[i].Split(['-'], StringSplitOptions.RemoveEmptyEntries);
+                        YDatas[i] = Convert.ToSingle(datas[i][1]);
                     }
 
                     if (data != null)
                     {
                         Controller.Chart.BeginUpdate();
 
-                        // 创建新的Y轴
-                        var yAxis = new AxisY(Controller.Chart.ViewXY);
-                        yAxis.Title.Visible = false;
-                        yAxis.Units.Visible = false;
-                        yAxis.AllowScaling = false;
-                        yAxis.AllowAutoYFit = false;
-                        yAxis.AutoDivSpacing = false;
-                        yAxis.MajorGrid.Visible = false;
-                        yAxis.MinorGrid.Visible = false;
-                        yAxis.MajorGrid.Pattern = LinePattern.Solid;
-                        yAxis.Units.Text = null;
-                        yAxis.AutoDivSeparationPercent = 0;
-                        yAxis.Visible = true;
-                        yAxis.SetRange(-2, 10); // 设置Y轴范围
-                        Controller.Chart.ViewXY.YAxes.Add(yAxis);
-
-
-                        PointLineSeries series = new(Controller.Chart.ViewXY, Controller.Chart.ViewXY.XAxes[0], yAxis)
+                        SampleDataBlockSeries series = new(Controller.Chart.ViewXY, Controller.Chart.ViewXY.XAxes[0], Controller.Chart.ViewXY.YAxes[0])
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
-
-                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50) },
-                            Points = new SeriesPoint[datas.Length]
+                            Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50),
                         };
 
                         series.MouseDoubleClick += (s, e) =>
                         {
-                            var TemporarySeries = s as PointLineSeries;
+                            var TemporarySeries = s as SampleDataBlockSeries;
 
                             var title = TemporarySeries.Title.Text.Split(':');
 
@@ -147,19 +136,14 @@ namespace CotrollerDemo.Views
 
                             if (result == DialogResult.Yes)
                             {
-                                Controller.Chart.ViewXY.PointLineSeries.Remove(series);
-                                Controller.Chart.ViewXY.YAxes.Remove(yAxis);
+                                Controller.Chart.ViewXY.SampleDataBlockSeries.Remove(series);
                                 Controller.UpdateCursorResult();
                             }
                         };
 
-                        for (int pointIndex = 0; pointIndex < datas.Length; pointIndex++)
-                        {
-                            series.Points[pointIndex].X = Convert.ToDouble(datas[pointIndex][0]);
-                            series.Points[pointIndex].Y = Convert.ToDouble(datas[pointIndex][1]);
-                        }
+                        series.AddSamples(YDatas, false);
 
-                        Controller.Chart.ViewXY.PointLineSeries.Add(series);
+                        Controller.Chart.ViewXY.SampleDataBlockSeries.Add(series);
 
                         Controller.Chart.ViewXY.LineSeriesCursors[0].Visible = true;
 
@@ -172,5 +156,20 @@ namespace CotrollerDemo.Views
             }
         }
 
+        private void AddCommentBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var textBox = new ResizableTextBox
+            {
+                Text = "双击编辑文字",
+                Foreground = Brushes.Black
+            };
+
+            Canvas.SetLeft(textBox, 50);
+            Canvas.SetTop(textBox, 50);
+
+            CanvasBase.Children.Add(textBox);
+            textBox.Focus();
+            textBox.SelectAll();
+        }
     }
 }

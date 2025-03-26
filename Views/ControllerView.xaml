@@ -4,10 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+    xmlns:dxb="http://schemas.devexpress.com/winfx/2008/xaml/bars"
     xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
+    xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
+    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     xmlns:local="clr-namespace:CotrollerDemo.Views"
+    xmlns:lvc="http://schemas.arction.com/charting/ultimate/"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prism="http://prismlibrary.com/"
     d:DesignHeight="600"
@@ -16,6 +20,12 @@
     <UserControl.Resources>
         <Style TargetType="{x:Type dxg:GridColumn}">
             <Setter Property="HorizontalHeaderContentAlignment" Value="Center" />
+        </Style>
+
+        <!--  菜单项样式  -->
+        <Style x:Key="MenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="CommandParameter" Value="{Binding Parameter}" />
         </Style>
     </UserControl.Resources>
 
@@ -133,12 +143,16 @@
                     VerticalAlignment="Stretch"
                     AllowDrop="True"
                     Drop="LightingChartItem_Drop">
-                    <ContentControl
-                        x:Name="ContentBase"
+                    <Canvas
+                        x:Name="CanvasBase"
                         MinWidth="525"
                         Margin="0,0,5,0"
-                        Content="{Binding ChartContent}"
-                        SizeChanged="ContentBase_SizeChanged" />
+                        SizeChanged="CanvasBase_SizeChanged">
+                        <!--  事件绑定  -->
+                        <dxmvvm:Interaction.Triggers>
+                            <dxmvvm:EventToCommand Command="{Binding ShowMenuCommand}" EventName="PreviewMouseRightButtonDown" />
+                        </dxmvvm:Interaction.Triggers>
+                    </Canvas>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutGroup
                     Margin="0,5"
@@ -162,15 +176,15 @@
                             Command="{Binding StopTestCommand}"
                             Content="试验停止" />
                     </dxlc:LayoutItem>
-                    <dxlc:LayoutItem
-                        Margin="5,0"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top">
-                        <dx:SimpleButton
-                            Height="30"
-                            Command="{Binding SaveDataCommand}"
-                            Content="保存数据" />
-                    </dxlc:LayoutItem>
+                    <!--<dxlc:LayoutItem
+                     Margin="5,0"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Top">
+                     <dx:SimpleButton
+                         Height="30"
+                         Command="{Binding SaveDataCommand}"
+                         Content="保存数据" />
+                 </dxlc:LayoutItem>-->
                     <dxlc:LayoutItem
                         Margin="5,0"
                         HorizontalAlignment="Left"
@@ -190,10 +204,20 @@
                             Command="{Binding ZoomToFitCommand}"
                             Content="重置缩放" />
                     </dxlc:LayoutItem>
+                    <dxlc:LayoutItem
+                        Margin="5,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top">
+                        <dx:SimpleButton
+                            x:Name="AddCommentBtn"
+                            Height="30"
+                            Click="AddCommentBtn_Click"
+                            Content="添加注释" />
+                    </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
         </dxlc:LayoutGroup>
 
-
     </dxlc:LayoutControl>
+
 </UserControl>

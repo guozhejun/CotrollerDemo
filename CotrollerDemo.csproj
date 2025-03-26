@@ -5,6 +5,10 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Models\TcpClientModel.cs~RF2e7315cc.TMP" />
+    <None Remove="ViewModels\ControllerViewModel.cs~RF255e0771.TMP" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="devexpress.wpf.grid.core" Version="24.2.5" />
     <PackageReference Include="devexpress.wpf.layoutcontrol" Version="24.2.5" />
     <PackageReference Include="Prism.DryIoc" Version="9.0.537" />

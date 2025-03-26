@@ -26,5 +26,10 @@ namespace CotrollerDemo.Models
         /// 连接状态
         /// </summary>
         public string Status { get; set; }
+
+        /// <summary>
+        /// 连接设备IP
+        /// </summary>
+        public IPAddress LinkIP { get; set; }
     }
 }
