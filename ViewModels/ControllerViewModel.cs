@@ -6,10 +6,12 @@ using Arction.Wpf.Charting.SeriesXY;
 using Arction.Wpf.Charting.Views;
 using Arction.Wpf.Charting.Views.ViewXY;
 using CotrollerDemo.Models;
+using CotrollerDemo.Views;
 using DevExpress.Mvvm.Native;
 using DevExpress.Utils;
 using DevExpress.Xpf.Bars;
 using DevExpress.Xpf.Core;
+using DevExpress.Xpf.Docking;
 using DryIoc.ImTools;
 using Prism.Commands;
 using Prism.Mvvm;
@@ -22,6 +24,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -69,6 +72,8 @@ namespace CotrollerDemo.ViewModels
             get { return _chart; }
             set { SetProperty(ref _chart, value); }
         }
+
+        //public List<LightningChart> Charts = [];
 
         private List<SeriesPoint[]> seriesPoints = [];
 
@@ -140,6 +145,9 @@ namespace CotrollerDemo.ViewModels
 
         #region Command
 
+        /// <summary>
+        /// 存储数据
+        /// </summary>
         //public DelegateCommand<object> SaveDataCommand { get; set; }
 
         /// <summary>
@@ -202,6 +210,10 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         public DelegateCommand<SampleDataSeries> DeleteSampleCommand { get; set; }
 
+        /// <summary>
+        /// 添加图表
+        /// </summary>
+        public DelegateCommand<object> AddChartCommand { get; set; }
         #endregion
 
         #region Main
@@ -228,13 +240,17 @@ namespace CotrollerDemo.ViewModels
             DeleteFileCommand = new DelegateCommand<object>(DeleteFile);
             ShowMenuCommand = new DelegateCommand(ShowMenu);
             DeleteSampleCommand = new DelegateCommand<SampleDataSeries>(DeleteSample);
+            AddChartCommand = new DelegateCommand<object>(AddChart);
         }
+
 
         /// <summary>
         /// 创建图表
         /// </summary>
-        private void CreateChart()
+        private LightningChart CreateChart()
         {
+            //var Chart = new LightningChart();
+
             Chart.PreviewMouseRightButtonDown += (s, e) => e.Handled = true;
             Chart.MouseDoubleClick += Chart_MouseDoubleClick;
 
@@ -322,48 +338,6 @@ namespace CotrollerDemo.ViewModels
                 CreateAnnotation(0);
             }
 
-            /*for (int i = 0; i < _seriseCount; i++)
-            {
-                // 创建新的曲线
-                var series = new SampleDataBlockSeries(view, view.XAxes[0], view.YAxes[0])
-                {
-                    Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = $"Curve {i + 1}" }, // 设置曲线标题
-                    ScrollModePointsKeepLevel = 1,
-                    SamplingFrequency = 0.1,
-                    //PointsType = PointsType.Points,
-                    AllowUserInteraction = true,
-                    Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50),
-                };
-
-                view.SampleDataBlockSeries.Add(series);
-
-                SineWaves.Add([]);
-
-                CreateAnnotation(0);
-
-            }*/
-
-            /*for (int i = 0; i < _seriseCount; i++)
-            {
-                // 创建新的曲线
-                var series = new SampleDataBlockSeries(view, view.XAxes[0], view.YAxes[0])
-                {
-                    Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = $"Curve {i + 1}" }, // 设置曲线标题
-                    ScrollModePointsKeepLevel = 1,
-                    SamplingFrequency = 0.1,
-                    //PointsType = PointsType.Points,
-                    AllowUserInteraction = true,
-                    Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50),
-                };
-
-                view.SampleDataBlockSeries.Add(series);
-
-                SineWaves.Add([]);
-
-                CreateAnnotation(0);
-
-            }*/
-
             //添加光标
             LineSeriesCursor cursor = new(Chart.ViewXY, Chart.ViewXY.XAxes[0])
             {
@@ -384,6 +358,7 @@ namespace CotrollerDemo.ViewModels
             Chart.EndUpdate();
             Chart.SizeChanged += new SizeChangedEventHandler(Chart_SizeChanged);
 
+            return Chart;
         }
 
         SampleDataSeries sample = new SampleDataSeries();
@@ -405,6 +380,7 @@ namespace CotrollerDemo.ViewModels
         /// <param name="e"></param>
         private void Chart_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
+            var chart = sender as LightningChart;
 
             var title = sample.Title.Text.Split(':');
 
@@ -412,7 +388,7 @@ namespace CotrollerDemo.ViewModels
 
             if (result == DialogResult.Yes)
             {
-                Chart.ViewXY.SampleDataSeries.Remove(sample);
+                chart.ViewXY.SampleDataSeries.Remove(sample);
                 UpdateCursorResult();
             }
 
@@ -605,6 +581,7 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         public void UpdateCursorResult()
         {
+            //Chart = Charts[0];
             Chart.BeginUpdate();
 
             //获取光标
@@ -971,6 +948,10 @@ namespace CotrollerDemo.ViewModels
             Chart.ViewXY.ZoomToFit();
         }
 
+        /// <summary>
+        /// 创建注释
+        /// </summary>
+        /// <param name="y"></param>
         private void CreateAnnotation(double y)
         {
             //添加注释以显示游标值
@@ -996,6 +977,41 @@ namespace CotrollerDemo.ViewModels
             Chart.ViewXY.Annotations.Add(annot);
         }
 
+        ResizableTextBox text = new();
+        /// <summary>
+        /// 添加图表
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        private void AddChart(object obj)
+        {
+            if (obj is LayoutGroup layoutGroup)
+            {
+                var layPanel = new LayoutPanel();
+                var canvas = new Canvas();
+                var chart = CreateChart(); ;
+                canvas.PreviewMouseDown += (o, e) =>
+                {
+                    var canvas = (Canvas)o;
+                    var hitTest = VisualTreeHelper.HitTest(canvas, e.GetPosition(canvas));
+
+                    if (hitTest == null || hitTest.VisualHit == canvas)
+                    {
+                        text.ClearFocus();
+                    }
+                };
+                canvas.SizeChanged += (o, e) =>
+                {
+                    var canvas = (Canvas)o;
+                    chart.Width = canvas.ActualWidth;
+                    chart.Height = canvas.ActualHeight;
+                };
+
+                canvas.Children.Add(chart);
+                layPanel.Content = canvas;
+                layoutGroup.Items.Add(layPanel);
+            }
+        }
         #endregion
     }
 

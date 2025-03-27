@@ -120,30 +120,29 @@ namespace CotrollerDemo.Views
                     {
                         Controller.Chart.BeginUpdate();
 
-                        SampleDataBlockSeries series = new(Controller.Chart.ViewXY, Controller.Chart.ViewXY.XAxes[0], Controller.Chart.ViewXY.YAxes[0])
+                        SampleDataSeries series = new(Controller.Chart.ViewXY, Controller.Chart.ViewXY.XAxes[0], Controller.Chart.ViewXY.YAxes[0])
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
-                            Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50),
+                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50),},
+                            SampleFormat = SampleFormat.SingleFloat
                         };
 
                         series.MouseDoubleClick += (s, e) =>
                         {
-                            var TemporarySeries = s as SampleDataBlockSeries;
-
-                            var title = TemporarySeries.Title.Text.Split(':');
+                            var title = series.Title.Text.Split(':');
 
                             DialogResult result = (DialogResult)DXMessageBox.Show($"是否删除{title[0]}曲线?", "提示", MessageBoxButton.YesNo);
 
                             if (result == DialogResult.Yes)
                             {
-                                Controller.Chart.ViewXY.SampleDataBlockSeries.Remove(series);
+                                Controller.Chart.ViewXY.SampleDataSeries.Remove(series);
                                 Controller.UpdateCursorResult();
                             }
                         };
 
                         series.AddSamples(YDatas, false);
 
-                        Controller.Chart.ViewXY.SampleDataBlockSeries.Add(series);
+                        Controller.Chart.ViewXY.SampleDataSeries.Add(series);
 
                         Controller.Chart.ViewXY.LineSeriesCursors[0].Visible = true;
 
@@ -156,20 +155,31 @@ namespace CotrollerDemo.Views
             }
         }
 
+        ResizableTextBox text = new();
         private void AddCommentBtn_Click(object sender, RoutedEventArgs e)
         {
-            var textBox = new ResizableTextBox
+            text = new ResizableTextBox()
             {
-                Text = "双击编辑文字",
-                Foreground = Brushes.Black
+                Width = 200,
+                Height = 100,
             };
 
-            Canvas.SetLeft(textBox, 50);
-            Canvas.SetTop(textBox, 50);
+            Canvas.SetLeft(text, 50);
+            Canvas.SetTop(text, 50);
 
-            CanvasBase.Children.Add(textBox);
-            textBox.Focus();
-            textBox.SelectAll();
+            CanvasBase.Children.Add(text);
+            
+        }
+
+        private void CanvasBase_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            var canvas = (Canvas)sender;
+            var hitTest = VisualTreeHelper.HitTest(canvas, e.GetPosition(canvas));
+
+            if (hitTest == null || hitTest.VisualHit == canvas)
+            {
+                text.ClearFocus();
+            }
         }
     }
 }
