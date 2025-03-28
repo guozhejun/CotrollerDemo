@@ -516,43 +516,50 @@ namespace CotrollerDemo.ViewModels
         /// <param name="e"></param>
         private void UpdateSeriesData()
         {
-            
-                Charts[0].BeginUpdate();
+            if (!IsRunning) return;
 
-                Parallel.For(0, _seriesCount, async (i) =>
+            // 从ChannelReader读取数据
+            if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
+            {
+                if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
                 {
-                    if (await GlobalValues.TcpClient.ChannelReader.WaitToReadAsync() && IsRunning)
+                    lock (data)
                     {
-                        if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
+                        int index = data.ChannelID;
+                        // 添加原始数据到对应通道
+                        SineWaves[index].AddRange(data.Data);
+                        PointNums[index] += data.Data.Length;
+
+                        // 检查是否所有通道都达到了1024点
+                        if (PointNums[index] >= 1024)
                         {
-                            if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
+                            // 更新所有图表的所有曲线
+                            foreach (var chart in Charts)
                             {
-                                lock (data)
+                                chart.BeginUpdate();
+                                for (int i = 0; i < _seriesCount; i++)
                                 {
-                                    int index = data.ChannelID;
-                                    var series = Charts[0].ViewXY.SampleDataSeries[data.ChannelID];
+                                    var series = chart.ViewXY.SampleDataSeries[i];
                                     lock (series)
                                     {
-                                        SineWaves[index].AddRange(data.Data);
-                                        PointNums[index] += data.Data.Length;
-                                        if (PointNums[index] >= 1024)
-                                        {
-                                            series.SamplesSingle = [.. SineWaves[index]];
-                                            //await SaveData(SineWaves[0]);
-                                            PointNums[index] = 0;
-                                            SineWaves[index].Clear();
-                                        }
+                                        // 使用相同的数据更新所有曲线，保持同频
+                                        series.SamplesSingle = [.. SineWaves[index]];
                                     }
                                 }
+                                chart.EndUpdate();
+                                UpdateCursorResult(chart);
+                            }
+                            
+                            // 重置所有通道的计数和数据
+                            for (int i = 0; i < _seriesCount; i++)
+                            {
+                                PointNums[i] = 0;
+                                SineWaves[i].Clear();
                             }
                         }
                     }
-                });
-
-                Charts[0].EndUpdate();
-
-                UpdateCursorResult(Charts[0]);
-         
+                }
+            }
         }
 
         /// <summary>
@@ -1025,6 +1032,22 @@ namespace CotrollerDemo.ViewModels
                 var chart = CreateChart();
                 Charts.Add(chart);
 
+                // 初始化新图表的数据
+                if (IsRunning)
+                {
+                    chart.BeginUpdate();
+                    for (int i = 0; i < _seriesCount; i++)
+                    {
+                        var series = chart.ViewXY.SampleDataSeries[i];
+                        if (SineWaves[i].Count > 0)
+                        {
+                            series.SamplesSingle = [.. SineWaves[i]];
+                        }
+                    }
+                    chart.EndUpdate();
+                    UpdateCursorResult(chart);
+                }
+
                 layPanel.AllowDrop = true;
                 layPanel.Drop += (o, e) =>
                 {
@@ -1053,7 +1076,7 @@ namespace CotrollerDemo.ViewModels
 
                                 SampleDataSeries series = new(chart.ViewXY, chart.ViewXY.XAxes[0], chart.ViewXY.YAxes[0])
                                 {
-                                    Title = new SeriesTitle() { Text = data }, // 设置曲线标题
+                                    Title = new SeriesTitle() { Text = data },
                                     LineStyle = { Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50), },
                                     SampleFormat = SampleFormat.SingleFloat
                                 };
@@ -1081,7 +1104,6 @@ namespace CotrollerDemo.ViewModels
                                 UpdateCursorResult(chart);
                             }
                         }
-
                     }
                 };
 
