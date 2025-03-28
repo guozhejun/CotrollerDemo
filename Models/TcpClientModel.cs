@@ -120,8 +120,6 @@ namespace CotrollerDemo.Models
         }
 
         int tempId = -1;
-        int receiveNum = 0;
-        List<ReceiveData> tempReceive = [];
         /// <summary>
         /// 接收客户端发送的数据
         /// </summary>

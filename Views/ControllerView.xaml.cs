@@ -61,12 +61,12 @@ namespace CotrollerDemo.Views
         private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             Controller = DataContext as ControllerViewModel;
-            if (!CanvasBase.Children.Contains(Controller.Chart))
+            if (!CanvasBase.Children.Contains(Controller.Charts[0]))
             {
-                CanvasBase.Children.Add(Controller.Chart);
+                CanvasBase.Children.Add(Controller.Charts[0]);
             }
-            Controller.Chart.Width = CanvasBase.ActualWidth;
-            Controller.Chart.Height = CanvasBase.ActualHeight;
+            Controller.Charts[0].Width = CanvasBase.ActualWidth;
+            Controller.Charts[0].Height = CanvasBase.ActualHeight;
 
         }
 
@@ -95,7 +95,7 @@ namespace CotrollerDemo.Views
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        public void LightingChartItem_Drop(object sender, DragEventArgs e)
+        private void ChartDockGroup_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.StringFormat))
             {
@@ -118,12 +118,12 @@ namespace CotrollerDemo.Views
 
                     if (data != null)
                     {
-                        Controller.Chart.BeginUpdate();
+                        Controller.Charts[0].BeginUpdate();
 
-                        SampleDataSeries series = new(Controller.Chart.ViewXY, Controller.Chart.ViewXY.XAxes[0], Controller.Chart.ViewXY.YAxes[0])
+                        SampleDataSeries series = new(Controller.Charts[0].ViewXY, Controller.Charts[0].ViewXY.XAxes[0], Controller.Charts[0].ViewXY.YAxes[0])
                         {
                             Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
-                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50),},
+                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50), },
                             SampleFormat = SampleFormat.SingleFloat
                         };
 
@@ -135,50 +135,25 @@ namespace CotrollerDemo.Views
 
                             if (result == DialogResult.Yes)
                             {
-                                Controller.Chart.ViewXY.SampleDataSeries.Remove(series);
-                                Controller.UpdateCursorResult();
+                                Controller.Charts[0].ViewXY.SampleDataSeries.Remove(series);
+                                Controller.UpdateCursorResult(Controller.Charts[0]);
                             }
                         };
 
                         series.AddSamples(YDatas, false);
 
-                        Controller.Chart.ViewXY.SampleDataSeries.Add(series);
+                        Controller.Charts[0].ViewXY.SampleDataSeries.Add(series);
 
-                        Controller.Chart.ViewXY.LineSeriesCursors[0].Visible = true;
+                        Controller.Charts[0].ViewXY.LineSeriesCursors[0].Visible = true;
 
-                        Controller.Chart.EndUpdate();
+                        Controller.CreateAnnotation(Controller.Charts[0]);
 
-                        Controller.UpdateCursorResult();
+                        Controller.Charts[0].EndUpdate();
+
+                        Controller.UpdateCursorResult(Controller.Charts[0]);
                     }
                 }
 
-            }
-        }
-
-        ResizableTextBox text = new();
-        private void AddCommentBtn_Click(object sender, RoutedEventArgs e)
-        {
-            text = new ResizableTextBox()
-            {
-                Width = 200,
-                Height = 100,
-            };
-
-            Canvas.SetLeft(text, 50);
-            Canvas.SetTop(text, 50);
-
-            CanvasBase.Children.Add(text);
-            
-        }
-
-        private void CanvasBase_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            var canvas = (Canvas)sender;
-            var hitTest = VisualTreeHelper.HitTest(canvas, e.GetPosition(canvas));
-
-            if (hitTest == null || hitTest.VisualHit == canvas)
-            {
-                text.ClearFocus();
             }
         }
     }

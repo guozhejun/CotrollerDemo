@@ -141,36 +141,22 @@
                 <dxlc:LayoutItem
                     x:Name="LightingChartItem"
                     HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch"
-                    AllowDrop="True"
-                    Drop="LightingChartItem_Drop">
+                    VerticalAlignment="Stretch">
                     <dxdo:DockLayoutManager x:Name="ChartDock">
                         <dxdo:LayoutGroup x:Name="ChartDockGroup">
-                            <dxdo:LayoutPanel>
-                                <Canvas
-                                    x:Name="CanvasBase"
-                                    PreviewMouseDown="CanvasBase_PreviewMouseDown"
-                                    SizeChanged="CanvasBase_SizeChanged">
+                            <dxdo:LayoutPanel AllowDrop="True" Drop="ChartDockGroup_Drop">
+                                <Canvas x:Name="CanvasBase" SizeChanged="CanvasBase_SizeChanged">
                                     <!--  事件绑定  -->
                                     <dxmvvm:Interaction.Triggers>
-                                        <dxmvvm:EventToCommand Command="{Binding ShowMenuCommand}" EventName="PreviewMouseRightButtonDown" />
+                                        <dxmvvm:EventToCommand
+                                            Command="{Binding ShowMenuCommand}"
+                                            CommandParameter="{Binding ElementName=CanvasBase}"
+                                            EventName="PreviewMouseRightButtonDown" />
                                     </dxmvvm:Interaction.Triggers>
                                 </Canvas>
                             </dxdo:LayoutPanel>
-                            <!--<dxdo:LayoutPanel>
-                                <Canvas PreviewMouseDown="CanvasBase_PreviewMouseDown" SizeChanged="CanvasBase_SizeChanged">
-                            -->
-                            <!--  事件绑定  -->
-                            <!--
-                                    <dxmvvm:Interaction.Triggers>
-                                        <dxmvvm:EventToCommand Command="{Binding ShowMenuCommand}" EventName="PreviewMouseRightButtonDown" />
-                                    </dxmvvm:Interaction.Triggers>
-                                </Canvas>
-                            </dxdo:LayoutPanel>-->
                         </dxdo:LayoutGroup>
-
                     </dxdo:DockLayoutManager>
-
                 </dxlc:LayoutItem>
                 <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Vertical">
                     <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Horizontal">
@@ -240,7 +226,8 @@
                             <dx:SimpleButton
                                 x:Name="AddCommentBtn"
                                 Height="30"
-                                Click="AddCommentBtn_Click"
+                                Command="{Binding AddCommentCommand}"
+                                CommandParameter="{Binding ElementName=CanvasBase}"
                                 Content="添加注释" />
                         </dxlc:LayoutItem>
 
