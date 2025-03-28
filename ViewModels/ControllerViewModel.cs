@@ -95,7 +95,7 @@ namespace CotrollerDemo.ViewModels
         /// <summary>
         /// 曲线数量
         /// </summary>
-        private int _seriseCount = 8;
+        private int _seriesCount = 8;
 
         /// <summary>
         /// 存放已生成的颜色
@@ -136,14 +136,13 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         public List<List<float>> SineWaves { get; set; } = [];
 
+        public List<List<List<float>>> SineWaveDatas { get; set; } = [];
+
         /// <summary>
         /// 曲线点数数量
         /// </summary>
         public int[] PointNums = new int[8];
 
-        private readonly object _renderLock = new();
-        private readonly CancellationTokenSource _cts = new();
-        private readonly ConcurrentQueue<float>[] _dataBuffers;
         #endregion
 
         #region Command
@@ -250,10 +249,6 @@ namespace CotrollerDemo.ViewModels
             AddCommentCommand = new DelegateCommand(AddComment);
         }
 
-        public void InitializeChart()
-        {
-        }
-
         /// <summary>
         /// 创建图表
         /// </summary>
@@ -330,7 +325,7 @@ namespace CotrollerDemo.ViewModels
             Color color = Colors.Black;
 
             // 创建8条曲线，每条曲线颜色不同
-            for (int i = 0; i < _seriseCount; i++)
+            for (int i = 0; i < _seriesCount; i++)
             {
                 // 创建新的曲线
                 var series = new SampleDataSeries(view, view.XAxes[0], view.YAxes[0])
@@ -342,11 +337,12 @@ namespace CotrollerDemo.ViewModels
                     LineStyle = { Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50) },
                     SampleFormat = SampleFormat.SingleFloat
                 };
+                SineWaves.Add([]);
 
                 view.SampleDataSeries.Add(series);
-                SineWaves.Add([]);
                 CreateAnnotation(_chart);
             }
+            SineWaveDatas.Add(SineWaves);
 
             //添加光标
             LineSeriesCursor cursor = new(_chart.ViewXY, _chart.ViewXY.XAxes[0])
@@ -501,6 +497,7 @@ namespace CotrollerDemo.ViewModels
             //}
         }
 
+        int num = 0;
         /// <summary>
         /// 刷新界面数据
         /// </summary>
@@ -508,10 +505,8 @@ namespace CotrollerDemo.ViewModels
         /// <param name="e"></param>
         private void CompositionTarget_Rendering(object sender, EventArgs e)
         {
-            for (int i = 0; i < Charts.Count; i++)
-            {
-                UpdateSeriesData(Charts[i]);
-            }
+            UpdateSeriesData();
+
         }
 
         /// <summary>
@@ -519,39 +514,45 @@ namespace CotrollerDemo.ViewModels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void UpdateSeriesData(LightningChart chart)
+        private void UpdateSeriesData()
         {
-            chart.BeginUpdate();
+            
+                Charts[0].BeginUpdate();
 
-            Parallel.For(0, _seriseCount, async (i) =>
-            {
-                if (await GlobalValues.TcpClient.ChannelReader.WaitToReadAsync() && IsRunning)
+                Parallel.For(0, _seriesCount, async (i) =>
                 {
-                    if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
+                    if (await GlobalValues.TcpClient.ChannelReader.WaitToReadAsync() && IsRunning)
                     {
-                        if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
+                        if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
                         {
-                            int index = data.ChannelID;
-                            var series = chart.ViewXY.SampleDataSeries[data.ChannelID];
-
-                            SineWaves[index].AddRange(data.Data);
-                            PointNums[index] += data.Data.Length;
-                            if (PointNums[index] >= 1024)
+                            if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
                             {
-                                series.SamplesSingle = [.. SineWaves[index]];
-                                //await SaveData(SineWaves[0]);
-                                PointNums[index] = 0;
-                                SineWaves[index].Clear();
+                                lock (data)
+                                {
+                                    int index = data.ChannelID;
+                                    var series = Charts[0].ViewXY.SampleDataSeries[data.ChannelID];
+                                    lock (series)
+                                    {
+                                        SineWaves[index].AddRange(data.Data);
+                                        PointNums[index] += data.Data.Length;
+                                        if (PointNums[index] >= 1024)
+                                        {
+                                            series.SamplesSingle = [.. SineWaves[index]];
+                                            //await SaveData(SineWaves[0]);
+                                            PointNums[index] = 0;
+                                            SineWaves[index].Clear();
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
 
-            //SaveData(SineWaves[0]);
-            chart.EndUpdate();
+                Charts[0].EndUpdate();
 
-            UpdateCursorResult(chart);
+                UpdateCursorResult(Charts[0]);
+         
         }
 
         /// <summary>
