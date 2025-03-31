@@ -152,7 +152,7 @@ namespace CotrollerDemo.Models
                         Data = floatArray
                     };
 
-                    if (tempId != ChannelID && receiveData.Data.Length == 256)
+                    if (tempId != ChannelID)
                     {
                         await ChannelWriter.WriteAsync(receiveData);
                         tempId = ChannelID;

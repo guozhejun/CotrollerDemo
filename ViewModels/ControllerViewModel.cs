@@ -276,21 +276,21 @@ namespace CotrollerDemo.ViewModels
 
             // 设置X轴
             view.XAxes[0].LabelsVisible = true;
-            view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling; // 设置X轴范围
+            view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling;
             view.XAxes[0].AllowUserInteraction = true;
             view.XAxes[0].AllowScrolling = false;
-            view.XAxes[0].SetRange(0, 1024); // 设置X轴范围
-            view.XAxes[0].ValueType = AxisValueType.Number; // 设置X轴数据类型
-            view.XAxes[0].AutoFormatLabels = false; // 设置X轴标签自动格式化
-            view.XAxes[0].LabelsNumberFormat = "N0"; // 设置X轴标签格式
-            view.XAxes[0].MajorGrid.Pattern = LinePattern.Solid; // 设置X轴网格线样式
+            view.XAxes[0].SetRange(0, 1024);
+            view.XAxes[0].ValueType = AxisValueType.Number;
+            view.XAxes[0].AutoFormatLabels = false;
+            view.XAxes[0].LabelsNumberFormat = "N0";
+            view.XAxes[0].MajorGrid.Pattern = LinePattern.Solid;
             view.XAxes[0].Title = null;
             view.XAxes[0].MajorGrid.Visible = false;
             view.XAxes[0].MinorGrid.Visible = false;
 
             // 设置Y轴
             var yAxis = new AxisY(view);
-            yAxis.Title.Text = null; // 设置Y轴标题
+            yAxis.Title.Text = null;
             yAxis.Title.Visible = false;
             yAxis.Title.Angle = 0;
             yAxis.Title.Color = lineBaseColor;
@@ -301,7 +301,7 @@ namespace CotrollerDemo.ViewModels
             yAxis.MajorGrid.Pattern = LinePattern.Solid;
             yAxis.AutoDivSeparationPercent = 0;
             yAxis.Visible = true;
-            yAxis.SetRange(-5, 12); // 设置Y轴范围
+            yAxis.SetRange(-2, 2); // 调整Y轴范围为正常波形范围
             yAxis.MajorGrid.Color = Colors.LightGray;
             view.YAxes.Add(yAxis);
 
@@ -312,27 +312,23 @@ namespace CotrollerDemo.ViewModels
             view.LegendBoxes[0].Position = LegendBoxPositionXY.TopRight;
             view.LegendBoxes[0].SeriesTitleMouseMoveOverOn += ControllerViewModel_SeriesTitleMouseMoveOverOn;
 
-            // 设置Y轴
+            // 设置Y轴布局
             view.AxisLayout.AxisGridStrips = XYAxisGridStrips.X;
-            view.AxisLayout.YAxesLayout = YAxesLayout.Stacked; // 设置Y轴布局
-            view.AxisLayout.SegmentsGap = 2; // 设置Y轴间隔
-            view.AxisLayout.YAxisAutoPlacement = YAxisAutoPlacement.LeftThenRight; // 设置Y轴标题位置
-            view.AxisLayout.YAxisTitleAutoPlacement = true; // 设置Y轴标题自动位置
-            view.AxisLayout.AutoAdjustMargins = false; // 设置是否自动调整边距
+            view.AxisLayout.YAxesLayout = YAxesLayout.Stacked;
+            view.AxisLayout.SegmentsGap = 2;
+            view.AxisLayout.YAxisAutoPlacement = YAxisAutoPlacement.LeftThenRight;
+            view.AxisLayout.YAxisTitleAutoPlacement = true;
+            view.AxisLayout.AutoAdjustMargins = false;
 
             CreateAnnotation(_chart);
-
-            Color color = Colors.Black;
 
             // 创建8条曲线，每条曲线颜色不同
             for (int i = 0; i < _seriesCount; i++)
             {
-                // 创建新的曲线
                 var series = new SampleDataSeries(view, view.XAxes[0], view.YAxes[0])
                 {
-                    Title = new SeriesTitle() { Text = $"Curve {i + 1}" }, // 设置曲线标题
+                    Title = new SeriesTitle() { Text = $"Curve {i + 1}" },
                     ScrollModePointsKeepLevel = 1,
-                    //PointsType = PointsType.Points,
                     AllowUserInteraction = true,
                     LineStyle = { Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50) },
                     SampleFormat = SampleFormat.SingleFloat
@@ -356,11 +352,8 @@ namespace CotrollerDemo.ViewModels
             _chart.ViewXY.LineSeriesCursors.Add(cursor);
             cursor.PositionChanged += Cursor_PositionChanged;
 
-            // 重置图表缩放
             _chart.ViewXY.ZoomToFit();
-
             _chart.AfterRendering += Chart_AfterRendering;
-
             _chart.EndUpdate();
             _chart.SizeChanged += new SizeChangedEventHandler(Chart_SizeChanged);
 
@@ -516,43 +509,56 @@ namespace CotrollerDemo.ViewModels
         /// <param name="e"></param>
         private void UpdateSeriesData()
         {
-            
-                Charts[0].BeginUpdate();
+            if (!IsRunning) return;
 
-                Parallel.For(0, _seriesCount, async (i) =>
+            // 从ChannelReader读取数据
+            if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
+            {
+                if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
                 {
-                    if (await GlobalValues.TcpClient.ChannelReader.WaitToReadAsync() && IsRunning)
+                    lock (data)
                     {
-                        if (GlobalValues.TcpClient.ChannelReader.TryRead(out var data))
+                        int index = data.ChannelID;
+                        SineWaves[index].AddRange(data.Data);
+                        PointNums[index] += data.Data.Length;
+
+                        // 检查是否所有通道都达到了1024点
+                        bool allChannelsReady = PointNums.All(count => count >= 1024);
+
+                        if (allChannelsReady)
                         {
-                            if (GlobalValues.TcpClient.ChannelReader.Count >= 8 && data != null)
+                            // 使用批量更新来提高性能
+                            foreach (var chart in Charts)
                             {
-                                lock (data)
+                                chart.BeginUpdate();
+                                try
                                 {
-                                    int index = data.ChannelID;
-                                    var series = Charts[0].ViewXY.SampleDataSeries[data.ChannelID];
-                                    lock (series)
+                                    for (int i = 0; i < _seriesCount; i++)
                                     {
-                                        SineWaves[index].AddRange(data.Data);
-                                        PointNums[index] += data.Data.Length;
-                                        if (PointNums[index] >= 1024)
+                                        var series = chart.ViewXY.SampleDataSeries[i];
+                                        lock (series)
                                         {
-                                            series.SamplesSingle = [.. SineWaves[index]];
-                                            //await SaveData(SineWaves[0]);
-                                            PointNums[index] = 0;
-                                            SineWaves[index].Clear();
+                                            series.SamplesSingle = [.. SineWaves[i]];
                                         }
                                     }
+                                    UpdateCursorResult(chart);
                                 }
+                                finally
+                                {
+                                    chart.EndUpdate();
+                                }
+                            }
+
+                            // 重置所有通道的计数和数据
+                            for (int i = 0; i < _seriesCount; i++)
+                            {
+                                PointNums[i] = 0;
+                                SineWaves[i].Clear();
                             }
                         }
                     }
-                });
-
-                Charts[0].EndUpdate();
-
-                UpdateCursorResult(Charts[0]);
-         
+                }
+            }
         }
 
         /// <summary>
@@ -719,53 +725,41 @@ namespace CotrollerDemo.ViewModels
             //获取光标
             LineSeriesCursor cursor = Chart.ViewXY.LineSeriesCursors[0];
 
-            //cursor.GetCurrentValueAsFrozen
-
             //获取注释
             List<AnnotationXY> cursorValues = Chart.ViewXY.Annotations;
 
-            float targetYCoord = (float)Chart.ViewXY.GetMarginsRect().Bottom;
-            //float targetYCoord = 675;
-            Chart.ViewXY.YAxes[0].CoordToValue(targetYCoord, out double y);
+            //float targetYCoord = (float)Chart.ViewXY.YAxes[0].Minimum;
+            Chart.ViewXY.YAxes[0].CoordToValue(620, out double y);
 
+            // 设置X轴注释位置和内容
             cursorValues[0].TargetAxisValues.X = cursor.ValueAtXAxis;
             cursorValues[0].TargetAxisValues.Y = y;
+            cursorValues[0].Text = $"X: {Math.Round(cursor.ValueAtXAxis, 2)}";
+            cursorValues[0].Visible = true;
 
-            StringBuilder sb = new();
-            StringBuilder sc = new();
+            // 更新每条曲线的注释
             int seriesNumber = 1;
-
-            string value;
-
             foreach (var series in Chart.ViewXY.SampleDataSeries)
             {
-                //如果批注中的光标值没有显示在光标旁边，则在图表的右侧显示其中的系列标题和光标值
                 string title = series.Title.Text.Split(':')[0];
-                bool resolvedOK = false;
+                if (SolveValueAccurate(series, cursor.ValueAtXAxis, out double seriesYValue))
+                {
+                    var annotation = cursorValues[seriesNumber];
 
-                resolvedOK = SolveValueAccurate(series, cursor.ValueAtXAxis, out double seriesYValue);
+                    // 设置注释位置
+                    annotation.TargetAxisValues.X = cursor.ValueAtXAxis;
+                    annotation.TargetAxisValues.Y = seriesYValue;
 
-                AxisY axisY = Chart.ViewXY.YAxes[series.AssignYAxisIndex];
+                    // 设置注释内容
+                    annotation.Text = $"{title}: {Math.Round(seriesYValue, 2)}";
+                    annotation.Visible = true;
 
-                value = string.Format("{0}: {1,12:#####.###} {2}", title, seriesYValue.ToString("0.0"), axisY.Units.Text);
-
-                cursorValues[seriesNumber].TargetAxisValues.X = cursor.ValueAtXAxis;
-                cursorValues[seriesNumber].TargetAxisValues.Y = seriesYValue;
-                cursorValues[seriesNumber].Visible = true;
-                cursorValues[seriesNumber].Text = Math.Round(seriesYValue, 2).ToString();
-
-                sb.AppendLine(value);
-                series.Title.Text = value;
+                    // 更新曲线标题
+                    series.Title.Text = $"{title}: {Math.Round(seriesYValue, 2)}";
+                }
                 seriesNumber++;
             }
 
-            //sb.AppendLine("");
-            sc.AppendLine("X: " + Math.Round(cursor.ValueAtXAxis, 2).ToString());
-
-            //cursorValueDisplay.TargetScreenCoords = new PointDoubleXY(cursor.ValueAtXAxis, 0);
-            //设置文本
-            cursorValues[0].Text = sc.ToString();
-            cursorValues[0].Visible = true;
             Chart.EndUpdate();
         }
 
@@ -986,22 +980,30 @@ namespace CotrollerDemo.ViewModels
             AnnotationXY annot = new(chart.ViewXY, chart.ViewXY.XAxes[0], chart.ViewXY.YAxes[0])
             {
                 Style = AnnotationStyle.Rectangle,
-                LocationCoordinateSystem = CoordinateSystem.RelativeCoordinatesToTarget,
+                LocationCoordinateSystem = CoordinateSystem.RelativeCoordinatesToTarget
             };
-            annot.LocationRelativeOffset.X = 50;
-            annot.LocationRelativeOffset.Y = 0;
+
+            annot.LocationRelativeOffset = new PointDoubleXY(50, 0); // 调整位置偏移
             annot.Sizing = AnnotationXYSizing.Automatic;
             annot.TextStyle.Color = Colors.Black;
-            annot.Text = "";
+            annot.TextStyle.Font = new WpfFont("Segoe UI", 10);
+
             annot.AllowTargetMove = false;
             annot.AllowAnchorAdjust = false;
             annot.AllowRotate = false;
             annot.AllowResize = false;
-            annot.Fill.Color = Colors.White;
-            annot.Fill.GradientColor = Colors.Gray;
-            annot.BorderVisible = false;
+
+            annot.Fill.Color = Color.FromArgb(230, 255, 255, 255); // 半透明白色背景
+            annot.Fill.GradientColor = Colors.Transparent;
+
+            annot.BorderLineStyle.Color = Colors.LightGray;
+            annot.BorderLineStyle.Width = 1;
+            annot.BorderLineStyle.Pattern = LinePattern.Solid;
+            annot.BorderVisible = true;
+
             annot.AllowUserInteraction = false;
             annot.Visible = false;
+
             chart.ViewXY.Annotations.Add(annot);
         }
 
@@ -1024,6 +1026,44 @@ namespace CotrollerDemo.ViewModels
                 var canvas = new Canvas();
                 var chart = CreateChart();
                 Charts.Add(chart);
+
+                // 初始化新图表的数据
+                if (IsRunning)
+                {
+                    chart.BeginUpdate();
+                    for (int i = 0; i < _seriesCount; i++)
+                    {
+                        var series = chart.ViewXY.SampleDataSeries[i];
+                        if (SineWaves[i].Count > 0)
+                        {
+                            series.SamplesSingle = [.. SineWaves[i]];
+                        }
+                    }
+                    chart.EndUpdate();
+                    UpdateCursorResult(chart);
+                }
+
+                // 添加关闭事件处理
+                layoutGroup.Items.CollectionChanged += (s, e) =>
+                {
+                    if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+                    {
+                        foreach (var item in e.OldItems)
+                        {
+                            if (item == layPanel)
+                            {
+                                // 从Charts集合中移除图表
+                                if (Charts.Contains(chart))
+                                {
+                                    Charts.Remove(chart);
+                                    // 释放图表资源
+                                    chart.Dispose();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                };
 
                 layPanel.AllowDrop = true;
                 layPanel.Drop += (o, e) =>
@@ -1053,7 +1093,7 @@ namespace CotrollerDemo.ViewModels
 
                                 SampleDataSeries series = new(chart.ViewXY, chart.ViewXY.XAxes[0], chart.ViewXY.YAxes[0])
                                 {
-                                    Title = new SeriesTitle() { Text = data }, // 设置曲线标题
+                                    Title = new SeriesTitle() { Text = data },
                                     LineStyle = { Color = ChartTools.CalcGradient(GenerateUniqueColor(), Colors.White, 50), },
                                     SampleFormat = SampleFormat.SingleFloat
                                 };
@@ -1081,10 +1121,8 @@ namespace CotrollerDemo.ViewModels
                                 UpdateCursorResult(chart);
                             }
                         }
-
                     }
                 };
-
                 canvas.PreviewMouseDown += (o, e) =>
                 {
                     var hitTest = VisualTreeHelper.HitTest(canvas, e.GetPosition(canvas));
