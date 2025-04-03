@@ -16,7 +16,6 @@
             <Setter Property="ContextMenu" Value="{x:Null}" />
         </Style>
 
-
         <Style TargetType="MenuItem">
             <Setter Property="Background" Value="Transparent" />
             <Style.Triggers>
@@ -31,7 +30,7 @@
     </UserControl.Resources>
 
     <UserControl.ContextMenu>
-        <ContextMenu x:Name="mainContextMenu">
+        <ContextMenu x:Name="MainContextMenu">
             <MenuItem Click="SelectAll_Click" Header="全选" />
             <MenuItem Click="Cut_Click" Header="剪切" />
             <MenuItem Click="Copy_Click" Header="复制" />

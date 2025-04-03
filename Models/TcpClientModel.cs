@@ -1,23 +1,11 @@
-﻿using DevExpress.Internal.WinApi.Windows.UI.Notifications;
-using DevExpress.Mvvm.Native;
-using DryIoc.ImTools;
-using Microsoft.VisualBasic;
-using System;
-using System.Collections.Concurrent;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Sockets;
-using System.ServiceModel.Channels;
-using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Windows.Media;
-using System.Windows.Shell;
-using static DevExpress.Utils.HashCodeHelper.Primitives;
 
 namespace CotrollerDemo.Models
 {
@@ -29,11 +17,11 @@ namespace CotrollerDemo.Models
 
         public byte[] packLengths = [0x1D, 0, 0, 0]; // 包长度
 
-        public byte[] hexValue = { 0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA }; // 发送包头
+        public byte[] hexValue = [0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA]; // 发送包头
 
-        public string[] receiveValue = { "C0", "FF", "AA", "BB", "CC", "DD" }; // 接收包头
+        public string[] receiveValue = ["C0", "FF", "AA", "BB", "CC", "DD"]; // 接收包头
 
-        public byte[] typeValues = { 0x14, 1, 0x0B, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // 类型值
+        public byte[] typeValues = [0x14, 1, 0x0B, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 类型值
 
         public int version = 5; // 版本号
 
@@ -49,7 +37,7 @@ namespace CotrollerDemo.Models
 
         public int Segments; // 分段数
 
-        private Channel<ReceiveData> _dataChannel;
+        private readonly Channel<ReceiveData> _dataChannel;
         public ChannelWriter<ReceiveData> ChannelWriter { get; set; }
         public ChannelReader<ReceiveData> ChannelReader { get; set; }
 
@@ -64,7 +52,7 @@ namespace CotrollerDemo.Models
         public int Num = 0;
         //public ConcurrentQueue<ReceiveData[]> _dataQueue { get; set; } = []; // 数据队列
 
-        private CancellationTokenSource _cts;
+        private readonly CancellationTokenSource _cts;
 
         public TcpClientModel()
         {
@@ -86,8 +74,6 @@ namespace CotrollerDemo.Models
                     SineWaveList.Add([]);
                 }
             }
-
-
         }
 
         /// <summary>
@@ -99,18 +85,20 @@ namespace CotrollerDemo.Models
             {
                 try
                 {
-                    Tcp = new(GlobalValues.GetIpAdderss(), 9089);
+                    Tcp = new TcpListener(GlobalValues.GetIpAdderss(), 9089);
                     Tcp.Start();
 
-                    client = await Tcp.AcceptTcpClientAsync().ConfigureAwait(false);
+                    while (!_cts.IsCancellationRequested)
+                    {
+                        client = await Tcp.AcceptTcpClientAsync().ConfigureAwait(false);
 
-                    client.ReceiveBufferSize = 1072;
-                    client.ReceiveTimeout = 3000;
+                        client.ReceiveBufferSize = 1072;
+                        client.ReceiveTimeout = 3000;
 
-                    stream = client.GetStream();
+                        stream = client.GetStream();
 
-                    ReceiveDataClient();
-
+                        ReceiveDataClient();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -119,7 +107,8 @@ namespace CotrollerDemo.Models
             });
         }
 
-        int tempId = -1;
+        private int tempId = -1;
+
         /// <summary>
         /// 接收客户端发送的数据
         /// </summary>
@@ -131,53 +120,34 @@ namespace CotrollerDemo.Models
             {
                 byte[] Buffers = new byte[1072];
                 int bytesRead;
-                while ((bytesRead = await stream.ReadAsync(Buffers)) != 0 && !_cts.IsCancellationRequested)
+                //while ((bytesRead = await stream.ReadAsync(Buffers, 0, Buffers.Length, _cts.Token).ConfigureAwait(false)) != 0 && !_cts.IsCancellationRequested)
+
+                while (!_cts.IsCancellationRequested)
                 {
-                    // 将数据放入队列
-                    byte[] data = new byte[bytesRead];
-                    Buffer.BlockCopy(Buffers, 0, data, 0, bytesRead);
-
-                    // 处理数据
-
-                    ChannelID = Buffers[40];
-
-                    Segments = Buffers[34];
-
-                    floatArray = ConvertByteToFloat([.. Buffers.Skip(48)]);
-
-                    ReceiveData receiveData = new()
+                    if ((bytesRead = await stream.ReadAsync(Buffers, _cts.Token).ConfigureAwait(false)) != 0 && GlobalValues.IsRunning)
                     {
-                        ChannelID = ChannelID,
-                        Segments = Segments,
-                        Data = floatArray
-                    };
+                        // 将数据放入队列
+                        byte[] data = new byte[bytesRead];
+                        Buffer.BlockCopy(Buffers, 0, data, 0, bytesRead);
 
-                    if (tempId != ChannelID)
-                    {
-                        await ChannelWriter.WriteAsync(receiveData);
-                        tempId = ChannelID;
+                        // 处理数据
+                        ChannelID = Buffers[40];
+                        Segments = Buffers[34];
+                        floatArray = ConvertByteToFloat([.. Buffers.Skip(48)]);
+
+                        ReceiveData receiveData = new()
+                        {
+                            ChannelID = ChannelID,
+                            Segments = Segments,
+                            Data = floatArray
+                        };
+
+                        if (tempId != ChannelID)
+                        {
+                            await ChannelWriter.WriteAsync(receiveData).ConfigureAwait(false);
+                            tempId = ChannelID;
+                        }
                     }
-
-                    //if (tempId != ChannelID)
-                    //{
-                    //    receiveDatas.Add(receiveData);
-                    //    tempId = ChannelID;
-
-                    //    if (ChannelID == 7 && Segments == 1)
-                    //    {
-                    //        receiveNum++;
-                    //        tempReceive.AddRange(receiveDatas);
-
-                    //        if (receiveNum >= 2)
-                    //        {
-                    //            Debug.WriteLine("tempReceive.Count：" + tempReceive.Count);
-                    //            await ChannelWriter.WriteAsync(tempReceive);
-                    //            tempReceive.Clear();
-                    //            receiveNum = 0;
-                    //        }
-                    //    }
-                    //}
-
                 }
             });
         }
@@ -187,7 +157,7 @@ namespace CotrollerDemo.Models
         /// </summary>
         /// <param name="byteArray"></param>
         /// <returns></returns>
-        private float[] ConvertByteToFloat(byte[] byteArray)
+        private static float[] ConvertByteToFloat(byte[] byteArray)
         {
             // 每 4 个字节转换为一个 float
             int floatCount = byteArray.Length / 4;
@@ -196,11 +166,7 @@ namespace CotrollerDemo.Models
             for (int i = 0; i < floatCount; i++)
             {
                 // 提取 4 个字节
-                byte[] bytes = new byte[4];
-                Buffer.BlockCopy(byteArray, i * 4, bytes, 0, 4);
-
-                // 将字节转换为 float
-                floatArray[i] = BitConverter.ToSingle(bytes, 0);
+                floatArray[i] = BitConverter.ToSingle(byteArray, i * 4);
             }
 
             return floatArray;
@@ -219,15 +185,15 @@ namespace CotrollerDemo.Models
                 {
                     byte[] data =
                      [
-                         .. packLengths,
-                    .. hexValue,
-                    .. BitConverter.GetBytes(version),
-                    .. typeValues,
-                    .. BitConverter.GetBytes(packLength),
-                    (byte)param
+                        .. packLengths,
+                        .. hexValue,
+                        .. BitConverter.GetBytes(version),
+                        .. typeValues,
+                        .. BitConverter.GetBytes(packLength),
+                        (byte)param
                      ];
 
-                    await stream.WriteAsync(data);
+                    await stream.WriteAsync(data, _cts.Token).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -235,6 +201,20 @@ namespace CotrollerDemo.Models
                 Debug.WriteLine("ErrorMessage：" + ex.Message);
             }
         }
-    }
 
+        public void StopTcpListen()
+        {
+            try
+            {
+                _cts.Cancel();
+                stream?.Close();
+                client?.Close();
+                Tcp?.Stop();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error stopping TCP listener: " + ex.Message);
+            }
+        }
+    }
 }

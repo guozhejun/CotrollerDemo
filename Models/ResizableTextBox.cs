@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -22,6 +18,7 @@ namespace DXApplication.ViewModels
         private double _originalLeft;
         private double _originalTop;
         private ResizeDirection _resizeDirection;
+
         private enum ResizeDirection
         {
             None,
@@ -121,9 +118,11 @@ namespace DXApplication.ViewModels
                     case ResizeDirection.Right:
                         this.Width = Math.Max(this.MinWidth, _originalWidth + delta.X);
                         break;
+
                     case ResizeDirection.Bottom:
                         this.Height = Math.Max(this.MinHeight, _originalHeight + delta.Y);
                         break;
+
                     case ResizeDirection.BottomRight:
                         this.Width = Math.Max(this.MinWidth, _originalWidth + delta.X);
                         this.Height = Math.Max(this.MinHeight, _originalHeight + delta.Y);

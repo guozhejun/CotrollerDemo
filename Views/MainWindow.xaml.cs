@@ -1,6 +1,5 @@
 ﻿using CotrollerDemo.Models;
 using System;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace CotrollerDemo.Views
@@ -16,12 +15,12 @@ namespace CotrollerDemo.Views
             this.Closed += MainWindow_Closed;
         }
 
-
-
         private void MainWindow_Closed(object sender, EventArgs e)
         {
+            GlobalValues.UdpClient.StopUdpListen();
+            GlobalValues.TcpClient.StopTcpListen();
+
             Environment.Exit(0);
         }
-
     }
 }

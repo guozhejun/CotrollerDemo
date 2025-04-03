@@ -1,14 +1,9 @@
 ﻿using DevExpress.Mvvm.Native;
-using DryIoc.ImTools;
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -18,20 +13,19 @@ namespace CotrollerDemo.Models
     {
         public IPAddress serverIp; // 本机IP
 
-        public byte[] hexValue = { 0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA }; // 发送包头
+        public byte[] hexValue = [0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA]; // 发送包头
 
-        public string[] receiveValue = { "00", "00", "C0", "FF", "AA", "BB", "CC", "DD" }; // 接收包头
+        public string[] receiveValue = ["00", "00", "C0", "FF", "AA", "BB", "CC", "DD"]; // 接收包头
 
         public int version = 5; // 版本号
 
         public int packLength = 10; // 包长度
 
-        IPEndPoint receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
+        private IPEndPoint receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
 
         public UdpClient udpServer; // UDP服务端
 
         public int DeviceConnectState = 0; // 设备连接状态
-
 
         public UdpClientModel()
         {
@@ -61,7 +55,6 @@ namespace CotrollerDemo.Models
             ];
 
             udpServer.SendAsync(bufferBytes, bufferBytes.Length, new(IPAddress.Parse("255.255.255.255"), 9090));
-
         }
 
         public void ReceiveData()
@@ -81,7 +74,7 @@ namespace CotrollerDemo.Models
                                 ProcessDataAsync(result);
                             });
                         }
-                       await Task.Delay(10);
+                        await Task.Delay(10);
                     }
                 });
             }
@@ -121,7 +114,6 @@ namespace CotrollerDemo.Models
                     Status = DeviceConnectState is 1 ? "已连接" : "未连接",
                     LinkIP = linkIp
                 });
-
             }
         }
 
@@ -132,9 +124,7 @@ namespace CotrollerDemo.Models
         /// <param name="IsConnect">是否连接</param>
         public void IsConnectDevice(IPAddress ip, bool IsConnect)
         {
-
             byte[] typeValues; // 类型值
-            ObservableCollection<DeviceInfoModel> DeviceList = [];
 
             if (IsConnect)
             {
@@ -156,7 +146,6 @@ namespace CotrollerDemo.Models
             ];
 
             udpServer.Send(bufferBytes, bufferBytes.Length, new IPEndPoint(ip, 9090));
-
         }
 
         /// <summary>
@@ -187,6 +176,18 @@ namespace CotrollerDemo.Models
             catch (Exception)
             {
                 throw;
+            }
+        }
+
+        public void StopUdpListen()
+        {
+            try
+            {
+                udpServer?.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error stopping UDP listener: " + ex.Message);
             }
         }
     }

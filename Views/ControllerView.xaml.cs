@@ -1,29 +1,13 @@
 ﻿using Arction.Wpf.Charting;
-using Arction.Wpf.Charting.Annotations;
-using Arction.Wpf.Charting.Axes;
 using Arction.Wpf.Charting.SeriesXY;
-using CotrollerDemo.Models;
 using CotrollerDemo.ViewModels;
-using DevExpress.Utils.CommonDialogs.Internal;
-using DevExpress.Xpf.Core;
-using DevExpress.Xpf.Core.ConditionalFormattingManager;
 using DevExpress.Xpf.Editors;
-using DXApplication.ViewModels;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace CotrollerDemo.Views
 {
@@ -36,38 +20,35 @@ namespace CotrollerDemo.Views
         {
             InitializeComponent();
 
-            var mainView = Application.Current.MainWindow as MainWindow;
-            if (mainView != null)
+            if (Application.Current.MainWindow is MainWindow mainView)
             {
-                main = mainView;
-                mainView.LayoutUpdated += MainView_LayoutUpdated;
+                _main = mainView;
+                _main.LayoutUpdated += MainView_LayoutUpdated;
             }
         }
 
-        ControllerViewModel Controller;
-        MainWindow main = new();
+        private ControllerViewModel _controller;
+        private readonly MainWindow _main = new();
 
         private void MainView_LayoutUpdated(object sender, EventArgs e)
         {
-            double newHeight = main.ActualHeight - 80;
-            fileGroup.Height = newHeight;
-            if (fileGroup.Height >= 100)
+            double newHeight = _main.ActualHeight - 80;
+            FileGroup.Height = newHeight;
+            if (FileGroup.Height >= 100)
             {
-                fileList.Height = fileGroup.Height - 100;
+                FileList.Height = FileGroup.Height - 100;
             }
-
         }
 
         private void CanvasBase_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            Controller = DataContext as ControllerViewModel;
-            if (!CanvasBase.Children.Contains(Controller.Charts[0]))
+            _controller = DataContext as ControllerViewModel;
+            if (_controller != null && !CanvasBase.Children.Contains(_controller.Charts[0]))
             {
-                CanvasBase.Children.Add(Controller.Charts[0]);
+                CanvasBase.Children.Add(_controller.Charts[0]);
             }
-            Controller.Charts[0].Width = CanvasBase.ActualWidth;
-            Controller.Charts[0].Height = CanvasBase.ActualHeight;
-
+            _controller.Charts[0].Width = CanvasBase.ActualWidth;
+            _controller.Charts[0].Height = CanvasBase.ActualHeight;
         }
 
         /// <summary>
@@ -81,7 +62,7 @@ namespace CotrollerDemo.Views
             {
                 if (e.LeftButton == MouseButtonState.Pressed)
                 {
-                    if (sender is ListBoxEdit listBoxEdit && listBoxEdit.SelectedItem != null)
+                    if (sender is ListBoxEdit { SelectedItem: not null } listBoxEdit)
                         DragDrop.DoDragDrop(listBoxEdit, listBoxEdit.SelectedItem, DragDropEffects.Copy);
                 }
             }
@@ -108,52 +89,44 @@ namespace CotrollerDemo.Views
                     // 读取文件的所有行并存储到数组中
                     string[] lines = File.ReadAllLines(filePath);
                     string[][] datas = new string[lines.Length][];
-                    float[] YDatas = new float[lines.Length];
+                    float[] yDatas = new float[lines.Length];
 
                     for (int i = 0; i < lines.Length; i++)
                     {
                         datas[i] = lines[i].Split(['-'], StringSplitOptions.RemoveEmptyEntries);
-                        YDatas[i] = Convert.ToSingle(datas[i][1]);
+                        yDatas[i] = Convert.ToSingle(datas[i][1]);
                     }
 
                     if (data != null)
                     {
-                        Controller.Charts[0].BeginUpdate();
+                        string titlt = data.Split('.')[0];
+                        _controller.Charts[0].BeginUpdate();
 
-                        SampleDataSeries series = new(Controller.Charts[0].ViewXY, Controller.Charts[0].ViewXY.XAxes[0], Controller.Charts[0].ViewXY.YAxes[0])
+                        SampleDataSeries series = new(_controller.Charts[0].ViewXY, _controller.Charts[0].ViewXY.XAxes[0], _controller.Charts[0].ViewXY.YAxes[0])
                         {
-                            Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = data }, // 设置曲线标题
-                            LineStyle = { Color = ChartTools.CalcGradient(Controller.GenerateUniqueColor(), Colors.White, 50), },
+                            Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = titlt }, // 设置曲线标题
+                            LineStyle = { Color = ChartTools.CalcGradient(_controller.GenerateUniqueColor(), Colors.White, 50), },
                             SampleFormat = SampleFormat.SingleFloat
                         };
 
-                        series.MouseDoubleClick += (s, e) =>
+                        series.MouseOverOn += (o, e) =>
                         {
-                            var title = series.Title.Text.Split(':');
-
-                            DialogResult result = (DialogResult)DXMessageBox.Show($"是否删除{title[0]}曲线?", "提示", MessageBoxButton.YesNo);
-
-                            if (result == DialogResult.Yes)
-                            {
-                                Controller.Charts[0].ViewXY.SampleDataSeries.Remove(series);
-                                Controller.UpdateCursorResult(Controller.Charts[0]);
-                            }
+                            _controller.Sample = series;
                         };
 
-                        series.AddSamples(YDatas, false);
+                        _controller.CreateAnnotation(_controller.Charts[0]);
 
-                        Controller.Charts[0].ViewXY.SampleDataSeries.Add(series);
+                        series.AddSamples(yDatas, false);
 
-                        Controller.Charts[0].ViewXY.LineSeriesCursors[0].Visible = true;
+                        _controller.Charts[0].ViewXY.SampleDataSeries.Add(series);
 
-                        Controller.CreateAnnotation(Controller.Charts[0]);
+                        _controller.Charts[0].ViewXY.LineSeriesCursors[0].Visible = true;
 
-                        Controller.Charts[0].EndUpdate();
+                        _controller.Charts[0].EndUpdate();
 
-                        Controller.UpdateCursorResult(Controller.Charts[0]);
+                        _controller.UpdateCursorResult(_controller.Charts[0]);
                     }
                 }
-
             }
         }
     }

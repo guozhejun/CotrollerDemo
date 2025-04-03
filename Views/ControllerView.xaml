@@ -10,11 +10,8 @@
     xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
     xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
     xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
-    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
-    xmlns:local="clr-namespace:CotrollerDemo.Views"
-    xmlns:lvc="http://schemas.arction.com/charting/ultimate/"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:prism="http://prismlibrary.com/"
+    xmlns:viewModels="clr-namespace:CotrollerDemo.ViewModels"
     d:DesignHeight="600"
     d:DesignWidth="860"
     mc:Ignorable="d">
@@ -36,12 +33,12 @@
         DragScrolling="False"
         Orientation="Horizontal">
         <dxlc:LayoutGroup
-            x:Name="fileGroup"
+            x:Name="FileGroup"
             HorizontalAlignment="Left"
             Orientation="Vertical">
             <dxlc:LayoutItem Label="文件列表" LabelPosition="Top">
                 <dxe:ListBoxEdit
-                    x:Name="fileList"
+                    x:Name="FileList"
                     MinWidth="225"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Stretch"
@@ -73,7 +70,7 @@
                         Height="30"
                         Margin="5,0"
                         Command="{Binding DeleteFileCommand}"
-                        CommandParameter="{Binding ElementName=fileList, Path=SelectedItem}"
+                        CommandParameter="{Binding ElementName=FileList, Path=SelectedItem}"
                         Content="删除" />
                 </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
@@ -85,7 +82,7 @@
                 Orientation="Vertical">
                 <dxlc:LayoutItem>
                     <dxg:GridControl
-                        x:Name="gridControl"
+                        x:Name="GridControl"
                         Height="128"
                         dx:ScrollBarExtensions.ScrollBarMode="TouchOverlap"
                         ItemsSource="{Binding Devices}">
@@ -123,7 +120,7 @@
                             Height="30"
                             Margin="5,0"
                             Command="{Binding ConnectCommand}"
-                            CommandParameter="{Binding ElementName=gridControl, Path=SelectedItem}"
+                            CommandParameter="{Binding ElementName=GridControl, Path=SelectedItem}"
                             Content="连接" />
                     </dxlc:LayoutItem>
                     <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -131,7 +128,7 @@
                             Height="30"
                             Margin="5,0"
                             Command="{Binding DisconnectCommand}"
-                            CommandParameter="{Binding ElementName=gridControl, Path=SelectedItem}"
+                            CommandParameter="{Binding ElementName=GridControl, Path=SelectedItem}"
                             Content="断开" />
                     </dxlc:LayoutItem>
                 </dxlc:LayoutGroup>
@@ -142,7 +139,11 @@
                     x:Name="LightingChartItem"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
-                    <dxdo:DockLayoutManager x:Name="ChartDock">
+                    <dxdo:DockLayoutManager
+                        x:Name="ChartDock"
+                        AllowDrop="True"
+                        LogicalTreeStructure="Optimized"
+                        ShowContentWhenDragging="False">
                         <dxdo:LayoutGroup x:Name="ChartDockGroup">
                             <dxdo:LayoutPanel AllowDrop="True" Drop="ChartDockGroup_Drop">
                                 <Canvas x:Name="CanvasBase" SizeChanged="CanvasBase_SizeChanged">
@@ -154,10 +155,15 @@
                                             EventName="PreviewMouseRightButtonDown" />
                                     </dxmvvm:Interaction.Triggers>
                                 </Canvas>
+                                <dxdo:LayoutPanel.ContextMenuCustomizations>
+                                    <dxb:RemoveAction ElementName="{x:Static dxdo:DefaultMenuItemNames.AutoHide}" />
+                                    <dxb:RemoveAction ElementName="{x:Static dxdo:DefaultMenuItemNames.Hide}" />
+                                </dxdo:LayoutPanel.ContextMenuCustomizations>
                             </dxdo:LayoutPanel>
                         </dxdo:LayoutGroup>
                     </dxdo:DockLayoutManager>
                 </dxlc:LayoutItem>
+
                 <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Vertical">
                     <dxlc:LayoutGroup HorizontalAlignment="Right" Orientation="Horizontal">
                         <dxlc:LayoutItem
@@ -178,28 +184,7 @@
                                 Command="{Binding StopTestCommand}"
                                 Content="试验停止" />
                         </dxlc:LayoutItem>
-                        <!--<dxlc:LayoutItem
-                            Margin="5,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top">
-                            <dx:SimpleButton
-                                Height="30"
-                                Command="{Binding SaveDataCommand}"
-                                Content="保存数据" />
-                        </dxlc:LayoutItem>-->
-                        <dxlc:LayoutItem
-                            Margin="5,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top">
-                            <dx:SimpleButton
-                                x:Name="AddChart"
-                                Height="30"
-                                Command="{Binding AddChartCommand}"
-                                CommandParameter="{Binding ElementName=ChartDockGroup}"
-                                Content="添加图表" />
-                        </dxlc:LayoutItem>
-                    </dxlc:LayoutGroup>
-                    <dxlc:LayoutGroup>
+
                         <dxlc:LayoutItem
                             Margin="5,0"
                             HorizontalAlignment="Left"
@@ -215,27 +200,15 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Top">
                             <dx:SimpleButton
+                                x:Name="AddChart"
                                 Height="30"
-                                Command="{Binding ZoomToFitCommand}"
-                                Content="重置缩放" />
+                                Command="{Binding AddChartCommand}"
+                                CommandParameter="{Binding ElementName=ChartDockGroup}"
+                                Content="添加图表" />
                         </dxlc:LayoutItem>
-                        <dxlc:LayoutItem
-                            Margin="5,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top">
-                            <dx:SimpleButton
-                                x:Name="AddCommentBtn"
-                                Height="30"
-                                Command="{Binding AddCommentCommand}"
-                                CommandParameter="{Binding ElementName=CanvasBase}"
-                                Content="添加注释" />
-                        </dxlc:LayoutItem>
-
                     </dxlc:LayoutGroup>
                 </dxlc:LayoutGroup>
             </dxlc:LayoutGroup>
         </dxlc:LayoutGroup>
-
     </dxlc:LayoutControl>
-
 </UserControl>

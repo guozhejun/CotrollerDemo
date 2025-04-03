@@ -1,19 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace CotrollerDemo.Views
 {
@@ -23,6 +14,7 @@ namespace CotrollerDemo.Views
     public partial class ResizableTextBox : UserControl
     {
         #region Dependency Properties
+
         public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
             "Text", typeof(string), typeof(ResizableTextBox),
             new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnTextChanged));
@@ -32,7 +24,8 @@ namespace CotrollerDemo.Views
             get => (string)GetValue(TextProperty);
             set => SetValue(TextProperty, value);
         }
-        #endregion
+
+        #endregion Dependency Properties
 
         private Point? dragStart;
         private Canvas ParentCanvas => Parent as Canvas;
@@ -124,6 +117,7 @@ namespace CotrollerDemo.Views
         }
 
         #region 文本编辑处理
+
         private void UserControl_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             StartEditing();
@@ -157,18 +151,20 @@ namespace CotrollerDemo.Views
             textBlock.Visibility = Visibility.Visible;
             textBox.Visibility = Visibility.Collapsed;
         }
-        #endregion
+
+        #endregion 文本编辑处理
 
         #region 右键菜单处理
+
         private void TextBox_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true;
-            mainContextMenu.PlacementTarget = textBox;
-            mainContextMenu.Placement = PlacementMode.RelativePoint;
+            MainContextMenu.PlacementTarget = textBox;
+            MainContextMenu.Placement = PlacementMode.RelativePoint;
             var pos = e.GetPosition(textBox);
-            mainContextMenu.HorizontalOffset = pos.X;
-            mainContextMenu.VerticalOffset = pos.Y;
-            mainContextMenu.IsOpen = true;
+            MainContextMenu.HorizontalOffset = pos.X;
+            MainContextMenu.VerticalOffset = pos.Y;
+            MainContextMenu.IsOpen = true;
         }
 
         private void UserControl_ContextMenuOpening(object sender, ContextMenuEventArgs e)
@@ -182,28 +178,33 @@ namespace CotrollerDemo.Views
             var isEditing = textBox.Visibility == Visibility.Visible;
             var hasText = !string.IsNullOrEmpty(Text);
 
-            foreach (MenuItem item in mainContextMenu.Items)
+            foreach (MenuItem item in MainContextMenu.Items)
             {
                 switch (item.Header?.ToString())
                 {
                     case "全选":
                         item.IsEnabled = isEditing;
                         break;
+
                     case "剪切":
                         item.IsEnabled = isEditing && hasText;
                         break;
+
                     case "复制":
                         item.IsEnabled = hasText;
                         break;
+
                     case "粘贴":
                         item.IsEnabled = isEditing && Clipboard.ContainsText();
                         break;
                 }
             }
         }
-        #endregion
+
+        #endregion 右键菜单处理
 
         #region 菜单命令实现
+
         private void SelectAll_Click(object sender, RoutedEventArgs e)
         {
             if (textBox.Visibility == Visibility.Visible)
@@ -254,9 +255,10 @@ namespace CotrollerDemo.Views
             BeginAnimation(OpacityProperty, animation);
         }
 
-        #endregion
+        #endregion 菜单命令实现
 
         #region 公共方法
+
         public void BringToFront()
         {
             if (ParentCanvas != null)
@@ -283,6 +285,7 @@ namespace CotrollerDemo.Views
             textBlock.Text = Text;
             textBox.Text = Text;
         }
+
         public void ClearFocus()
         {
             textBlock.Text = textBox.Text;
@@ -291,6 +294,7 @@ namespace CotrollerDemo.Views
             textBlock.Visibility = Visibility.Visible;
             Keyboard.ClearFocus();
         }
-        #endregion
+
+        #endregion 公共方法
     }
 }

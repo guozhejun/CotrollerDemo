@@ -1,10 +1,9 @@
-﻿using Prism.Ioc;
+﻿using CotrollerDemo.ViewModels;
 using CotrollerDemo.Views;
-using System.Windows;
-using CotrollerDemo.ViewModels;
 using Prism.DryIoc;
+using Prism.Ioc;
 using Prism.Navigation.Regions;
-using Prism.Modularity;
+using System.Windows;
 
 namespace CotrollerDemo
 {
@@ -22,6 +21,7 @@ namespace CotrollerDemo
         {
             containerRegistry.RegisterForNavigation<ControllerView, ControllerViewModel>();
         }
+
         protected override void Initialize()
         {
             base.Initialize();
@@ -32,7 +32,6 @@ namespace CotrollerDemo
             // 导航到ViewA
             var regionManager = Container.Resolve<IRegionManager>();
             regionManager.RequestNavigate("ContentRegion", "ControllerView");
-
         }
     }
 }
