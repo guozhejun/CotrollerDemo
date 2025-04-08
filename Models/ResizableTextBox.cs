@@ -158,14 +158,14 @@ namespace DXApplication.ViewModels
                 _resizeDirection = ResizeDirection.None;
                 this.ReleaseMouseCapture();
 
-                if (!_hasMoved(_dragStartPosition, e.GetPosition(Window.GetWindow(this))))
+                if (!HasMoved(_dragStartPosition, e.GetPosition(Window.GetWindow(this))))
                 {
                     this.Focus();
                 }
             }
         }
 
-        private bool _hasMoved(Point start, Point end)
+        private bool HasMoved(Point start, Point end)
         {
             return Math.Abs(start.X - end.X) > SystemParameters.MinimumHorizontalDragDistance ||
                Math.Abs(start.Y - end.Y) > SystemParameters.MinimumVerticalDragDistance;

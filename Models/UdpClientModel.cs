@@ -6,32 +6,33 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Application = System.Windows.Application;
 
 namespace CotrollerDemo.Models
 {
     public class UdpClientModel
     {
-        public IPAddress serverIp; // 本机IP
+        public IPAddress ServerIp; // 本机IP
 
-        public byte[] hexValue = [0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA]; // 发送包头
+        public byte[] HexValue = [0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA]; // 发送包头
 
-        public string[] receiveValue = ["00", "00", "C0", "FF", "AA", "BB", "CC", "DD"]; // 接收包头
+        public string[] ReceiveValue = ["00", "00", "C0", "FF", "AA", "BB", "CC", "DD"]; // 接收包头
 
-        public int version = 5; // 版本号
+        public int Version = 5; // 版本号
 
-        public int packLength = 10; // 包长度
+        public int PackLength = 10; // 包长度
 
-        private IPEndPoint receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
+        private IPEndPoint _receivePoint = new(IPAddress.Parse("255.255.255.255"), 9090); // 接收客户端的IP和端口
 
-        public UdpClient udpServer; // UDP服务端
+        public UdpClient UdpServer; // UDP服务端
 
         public int DeviceConnectState = 0; // 设备连接状态
 
         public UdpClientModel()
         {
-            serverIp = GlobalValues.GetIpAdderss();
+            ServerIp = GlobalValues.GetIpAdders();
             int serverPort = 8080;
-            udpServer = new(serverPort);
+            UdpServer = new(serverPort);
             ReceiveData();
         }
 
@@ -46,15 +47,15 @@ namespace CotrollerDemo.Models
 
             byte[] bufferBytes =
             [
-                .. hexValue,
-                         .. BitConverter.GetBytes(version),
+                .. HexValue,
+                         .. BitConverter.GetBytes(Version),
                          .. typeValues,
-                         .. BitConverter.GetBytes(packLength),
-                         .. serverIp.GetAddressBytes(),
+                         .. BitConverter.GetBytes(PackLength),
+                         .. ServerIp.GetAddressBytes(),
                          .. GetMacAddress()
             ];
 
-            udpServer.SendAsync(bufferBytes, bufferBytes.Length, new(IPAddress.Parse("255.255.255.255"), 9090));
+            UdpServer.SendAsync(bufferBytes, bufferBytes.Length, new(IPAddress.Parse("255.255.255.255"), 9090));
         }
 
         public void ReceiveData()
@@ -65,11 +66,11 @@ namespace CotrollerDemo.Models
                 {
                     while (true)
                     {
-                        var result = udpServer.Receive(ref receivePoint);
+                        var result = UdpServer.Receive(ref _receivePoint);
 
                         if (result.Length > 0)
                         {
-                            App.Current.Dispatcher.Invoke(() =>
+                            Application.Current.Dispatcher.Invoke(() =>
                             {
                                 ProcessDataAsync(result);
                             });
@@ -86,13 +87,13 @@ namespace CotrollerDemo.Models
 
         public void ProcessDataAsync(byte[] data)
         {
-            byte[] TemporaryArray = new byte[8];
+            byte[] temporaryArray = new byte[8];
 
-            Array.Copy(data, TemporaryArray, 8);
+            Array.Copy(data, temporaryArray, 8);
 
-            string[] hexArray = [.. TemporaryArray.Select(b => b.ToString("X2"))];
+            string[] hexArray = [.. temporaryArray.Select(b => b.ToString("X2"))];
 
-            if (receiveValue.SequenceEqual(hexArray) && data.Length > 29)
+            if (ReceiveValue.SequenceEqual(hexArray) && data.Length > 29)
             {
                 // 获取接收到的IP
                 byte[] deviceIpByte = new byte[4];
@@ -103,16 +104,16 @@ namespace CotrollerDemo.Models
                 // 获取接收到的序列号
                 byte[] deviceSerialNumByte = new byte[16];
                 Array.Copy(data, data.Length - 19, deviceSerialNumByte, 0, 16);
-                string[] deviceSerialNums = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
+                string[] deviceSerialNum = [.. deviceSerialNumByte.Select(b => b.ToString("X2"))];
 
                 DeviceConnectState = data[31];
 
                 GlobalValues.Devices.Add(new DeviceInfoModel()
                 {
-                    IpAddress = receivePoint.Address,
-                    SerialNum = string.Join(":", deviceSerialNums),
+                    IpAddress = _receivePoint.Address,
+                    SerialNum = string.Join(":", deviceSerialNum),
                     Status = DeviceConnectState is 1 ? "已连接" : "未连接",
-                    LinkIP = linkIp
+                    LinkIp = linkIp
                 });
             }
         }
@@ -120,13 +121,13 @@ namespace CotrollerDemo.Models
         /// <summary>
         /// 连接/断开设备
         /// </summary>
-        /// <param name="iPEndPoint"></param>
-        /// <param name="IsConnect">是否连接</param>
-        public void IsConnectDevice(IPAddress ip, bool IsConnect)
+        /// <param name="ip"></param>
+        /// <param name="isConnect">是否连接</param>
+        public void IsConnectDevice(IPAddress ip, bool isConnect)
         {
             byte[] typeValues; // 类型值
 
-            if (IsConnect)
+            if (isConnect)
             {
                 typeValues = [1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0];
             }
@@ -137,15 +138,15 @@ namespace CotrollerDemo.Models
 
             byte[] bufferBytes =
             [
-              .. hexValue,
-              .. BitConverter.GetBytes(version),
+              .. HexValue,
+              .. BitConverter.GetBytes(Version),
               .. typeValues,
-              .. BitConverter.GetBytes(packLength),
-              .. serverIp.GetAddressBytes(),
+              .. BitConverter.GetBytes(PackLength),
+              .. ServerIp.GetAddressBytes(),
               .. GetMacAddress()
             ];
 
-            udpServer.Send(bufferBytes, bufferBytes.Length, new IPEndPoint(ip, 9090));
+            UdpServer.Send(bufferBytes, bufferBytes.Length, new IPEndPoint(ip, 9090));
         }
 
         /// <summary>
@@ -154,36 +155,29 @@ namespace CotrollerDemo.Models
         /// <returns></returns>
         public static byte[] GetMacAddress()
         {
-            try
+            byte[] macBytes = [];
+
+            // 获取所有网络接口
+            var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+
+            foreach (var networkInterface in networkInterfaces)
             {
-                byte[] macBytes = [];
-
-                // 获取所有网络接口
-                NetworkInterface[] networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-
-                foreach (NetworkInterface networkInterface in networkInterfaces)
+                // 检查网络接口类型是否为以太网
+                if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
                 {
-                    // 检查网络接口类型是否为以太网
-                    if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
-                    {
-                        // 获取 MAC 地址
-                        macBytes = networkInterface.GetPhysicalAddress().GetAddressBytes();
-                    }
+                    // 获取 MAC 地址
+                    macBytes = networkInterface.GetPhysicalAddress().GetAddressBytes();
                 }
+            }
 
-                return macBytes;
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            return macBytes;
         }
 
         public void StopUdpListen()
         {
             try
             {
-                udpServer?.Close();
+                UdpServer?.Close();
             }
             catch (Exception ex)
             {

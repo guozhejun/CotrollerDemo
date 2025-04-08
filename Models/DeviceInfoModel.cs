@@ -25,6 +25,6 @@ namespace CotrollerDemo.Models
         /// <summary>
         /// 连接设备IP
         /// </summary>
-        public IPAddress LinkIP { get; set; }
+        public IPAddress LinkIp { get; set; }
     }
 }

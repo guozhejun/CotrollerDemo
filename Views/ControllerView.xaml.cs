@@ -4,6 +4,7 @@ using CotrollerDemo.ViewModels;
 using DevExpress.Xpf.Editors;
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -47,8 +48,12 @@ namespace CotrollerDemo.Views
             {
                 CanvasBase.Children.Add(_controller.Charts[0]);
             }
-            _controller.Charts[0].Width = CanvasBase.ActualWidth;
-            _controller.Charts[0].Height = CanvasBase.ActualHeight;
+
+            if (_controller != null)
+            {
+                _controller.Charts[0].Width = CanvasBase.ActualWidth;
+                _controller.Charts[0].Height = CanvasBase.ActualHeight;
+            }
         }
 
         /// <summary>
@@ -80,52 +85,53 @@ namespace CotrollerDemo.Views
         {
             if (e.Data.GetDataPresent(DataFormats.StringFormat))
             {
-                string data = e.Data.GetData(DataFormats.StringFormat) as string;
+                string path = e.Data.GetData(DataFormats.StringFormat) as string;
 
-                string filePath = System.IO.Path.Combine("D:\\Datas", data);
+                string filePath = System.IO.Path.Combine("D:\\Datas", path ?? string.Empty);
 
                 if (File.Exists(filePath))
                 {
                     // 读取文件的所有行并存储到数组中
                     string[] lines = File.ReadAllLines(filePath);
-                    string[][] datas = new string[lines.Length][];
-                    float[] yDatas = new float[lines.Length];
+                    string[][] data = new string[lines.Length][];
+                    float[] yData = new float[lines.Length];
 
                     for (int i = 0; i < lines.Length; i++)
                     {
-                        datas[i] = lines[i].Split(['-'], StringSplitOptions.RemoveEmptyEntries);
-                        yDatas[i] = Convert.ToSingle(datas[i][1]);
+                        data[i] = lines[i].Split(['-'], 2, StringSplitOptions.RemoveEmptyEntries);
+                        yData[i] = Convert.ToSingle(Math.Round(Convert.ToDouble(data[i][1]), 6));
                     }
 
-                    if (data != null)
+                    if (path != null)
                     {
-                        string titlt = data.Split('.')[0];
+                        string title = path.Split('.')[0];
                         _controller.Charts[0].BeginUpdate();
 
-                        SampleDataSeries series = new(_controller.Charts[0].ViewXY, _controller.Charts[0].ViewXY.XAxes[0], _controller.Charts[0].ViewXY.YAxes[0])
+                        SampleDataSeries series = new(_controller.Charts[0].ViewXY, _controller.Charts[0].ViewXY.XAxes[0],
+                            _controller.Charts[0].ViewXY.YAxes[0])
                         {
-                            Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = titlt }, // 设置曲线标题
-                            LineStyle = { Color = ChartTools.CalcGradient(_controller.GenerateUniqueColor(), Colors.White, 50), },
+                            Title = new Arction.Wpf.Charting.Titles.SeriesTitle() { Text = title }, // 设置曲线标题
+                            LineStyle =
+                            {
+                                Color = ChartTools.CalcGradient(_controller.GenerateUniqueColor(), Colors.White, 50),
+                            },
                             SampleFormat = SampleFormat.SingleFloat
                         };
 
-                        series.MouseOverOn += (o, e) =>
-                        {
-                            _controller.Sample = series;
-                        };
+                        series.MouseOverOn += (_, _) => { _controller.Sample = series; };
 
                         _controller.CreateAnnotation(_controller.Charts[0]);
 
-                        series.AddSamples(yDatas, false);
+                        series.AddSamples(yData, false);
 
                         _controller.Charts[0].ViewXY.SampleDataSeries.Add(series);
-
-                        _controller.Charts[0].ViewXY.LineSeriesCursors[0].Visible = true;
-
-                        _controller.Charts[0].EndUpdate();
-
-                        _controller.UpdateCursorResult(_controller.Charts[0]);
                     }
+
+                    _controller.Charts[0].ViewXY.LineSeriesCursors[0].Visible = true;
+
+                    _controller.Charts[0].EndUpdate();
+
+                    _controller.UpdateCursorResult(_controller.Charts[0]);
                 }
             }
         }
