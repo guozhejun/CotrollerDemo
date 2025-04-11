@@ -11,7 +11,6 @@
     xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
     xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModels="clr-namespace:CotrollerDemo.ViewModels"
     d:DesignHeight="600"
     d:DesignWidth="860"
     mc:Ignorable="d">
@@ -56,14 +55,16 @@
                         Height="30"
                         Margin="5,0"
                         Command="{Binding OpenFolderCommand}"
-                        Content="打开文件夹" />
+                        Content="打开文件夹"
+                        IsEnabled="{Binding IsDrop}" />
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem>
                     <dx:SimpleButton
                         Height="30"
                         Margin="5,0"
                         Command="{Binding ClearFolderCommand}"
-                        Content="清空" />
+                        Content="清空"
+                        IsEnabled="{Binding IsDrop}" />
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem>
                     <dx:SimpleButton
@@ -71,7 +72,8 @@
                         Margin="5,0"
                         Command="{Binding DeleteFileCommand}"
                         CommandParameter="{Binding ElementName=FileList, Path=SelectedItem}"
-                        Content="删除" />
+                        Content="删除"
+                        IsEnabled="{Binding IsDrop}" />
                 </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
         </dxlc:LayoutGroup>
@@ -185,16 +187,6 @@
                                 Content="试验停止" />
                         </dxlc:LayoutItem>
 
-                        <dxlc:LayoutItem
-                            Margin="5,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top">
-                            <dx:SimpleButton
-                                Height="30"
-                                Command="{Binding SwitchLegendCommand}"
-                                CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
-                                Content="隐藏图例" />
-                        </dxlc:LayoutItem>
                         <dxlc:LayoutItem
                             Margin="5,0"
                             HorizontalAlignment="Left"

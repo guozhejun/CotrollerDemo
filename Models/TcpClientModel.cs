@@ -37,6 +37,8 @@ namespace CotrollerDemo.Models
         public List<List<float>> SineWaveList { get; set; } = []; // 正弦波数据
 
         private readonly CancellationTokenSource _cts;
+        private int _tempId = -1;
+        private readonly object _dataLock = new object(); // 添加一个锁对象来同步数据处理
 
         public TcpClientModel()
         {
@@ -91,8 +93,6 @@ namespace CotrollerDemo.Models
             });
         }
 
-        private int _tempId = -1;
-
         /// <summary>
         /// 接收客户端发送的数据
         /// </summary>
@@ -108,26 +108,39 @@ namespace CotrollerDemo.Models
                     int bytesRead;
                     if ((bytesRead = await Stream.ReadAsync(buffers, _cts.Token).ConfigureAwait(false)) != 0 && GlobalValues.IsRunning)
                     {
-                        // 将数据放入队列
-                        byte[] data = new byte[bytesRead];
-                        Buffer.BlockCopy(buffers, 0, data, 0, bytesRead);
-
-                        // 处理数据
-                        ChannelId = buffers[40];
-                        Segments = buffers[34];
-                        FloatArray = ConvertByteToFloat([.. buffers.Skip(48)]);
-
-                        ReceiveData receiveData = new()
+                        lock (_dataLock)
                         {
-                            ChannelId = ChannelId,
-                            Segments = Segments,
-                            Data = FloatArray
-                        };
+                            try
+                            {
+                                // 将数据放入队列
+                                byte[] data = new byte[bytesRead];
+                                Buffer.BlockCopy(buffers, 0, data, 0, bytesRead);
 
-                        if (_tempId != ChannelId)
-                        {
-                            await ChannelWriter.WriteAsync(receiveData).ConfigureAwait(false);
-                            _tempId = ChannelId;
+                                // 处理数据
+                                if (bytesRead > 48) // 确保数据长度足够
+                                {
+                                    ChannelId = buffers[40];
+                                    Segments = buffers[34];
+                                    FloatArray = ConvertByteToFloat([.. buffers.Skip(48)]);
+
+                                    if (ChannelId >= 0 && ChannelId < 8 && FloatArray.Length > 0)
+                                    {
+                                        ReceiveData receiveData = new()
+                                        {
+                                            ChannelId = ChannelId,
+                                            Segments = Segments,
+                                            Data = FloatArray
+                                        };
+
+                                        // 发送数据到通道
+                                        ChannelWriter.WriteAsync(receiveData).ConfigureAwait(false).GetAwaiter().GetResult();
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Error processing TCP data: {ex.Message}");
+                            }
                         }
                     }
                 }
