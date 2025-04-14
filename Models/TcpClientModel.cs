@@ -19,6 +19,8 @@ namespace CotrollerDemo.Models
 
         public byte[] HexValue = [0xFA, 0xFB, 0xFC, 0xFD, 0xDD, 0xCC, 0xBB, 0xAA]; // 发送包头
 
+        public byte[] ReceiveValue = [0x2C, 0x04, 0xC0, 0xFF, 0xAA, 0xBB, 0xCC, 0xDD]; // 接收包头
+
         public byte[] TypeValues = [0x14, 1, 0x0B, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 类型值
 
         public int Version = 5; // 版本号
@@ -116,24 +118,28 @@ namespace CotrollerDemo.Models
                                 byte[] data = new byte[bytesRead];
                                 Buffer.BlockCopy(buffers, 0, data, 0, bytesRead);
 
-                                // 处理数据
-                                if (bytesRead > 48) // 确保数据长度足够
+                                byte[] header = data[..8];
+                                if (header.SequenceEqual(ReceiveValue))
                                 {
-                                    ChannelId = buffers[40];
-                                    Segments = buffers[34];
-                                    FloatArray = ConvertByteToFloat([.. buffers.Skip(48)]);
-
-                                    if (ChannelId >= 0 && ChannelId < 8 && FloatArray.Length > 0)
+                                    // 处理数据
+                                    if (bytesRead > 48) // 确保数据长度足够
                                     {
-                                        ReceiveData receiveData = new()
-                                        {
-                                            ChannelId = ChannelId,
-                                            Segments = Segments,
-                                            Data = FloatArray
-                                        };
+                                        ChannelId = buffers[40];
+                                        Segments = buffers[34];
+                                        FloatArray = ConvertByteToFloat([.. buffers.Skip(48)]);
 
-                                        // 发送数据到通道
-                                        ChannelWriter.WriteAsync(receiveData).ConfigureAwait(false).GetAwaiter().GetResult();
+                                        if (ChannelId >= 0 && ChannelId < 8 && FloatArray.Length > 0)
+                                        {
+                                            ReceiveData receiveData = new()
+                                            {
+                                                ChannelId = ChannelId,
+                                                Segments = Segments,
+                                                Data = FloatArray
+                                            };
+
+                                            // 发送数据到通道
+                                            ChannelWriter.WriteAsync(receiveData).ConfigureAwait(false);
+                                        }
                                     }
                                 }
                             }

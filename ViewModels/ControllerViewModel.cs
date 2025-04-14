@@ -27,6 +27,7 @@ using DevExpress.Xpf.Docking;
 using DryIoc.ImTools;
 using Prism.Commands;
 using Prism.Mvvm;
+using static DevExpress.Data.Helpers.FindSearchRichParser;
 using Application = System.Windows.Application;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using TextEdit = DevExpress.Xpf.Editors.TextEdit;
@@ -131,6 +132,7 @@ namespace CotrollerDemo.ViewModels
         public SampleDataSeries Sample { get; set; } = new();
         public LineSeriesCursor Cursor { get; set; }
 
+        public CancellationTokenSource source = new();
         #endregion Property
 
         #region Command
@@ -198,10 +200,11 @@ namespace CotrollerDemo.ViewModels
         {
             UpdateDeviceList();
             GlobalValues.TcpClient.StartTcpListen();
-            GetFolderFiles();
+            // 使用异步方法并立即启动任务，但不等待结果
+            _ = GetFolderFilesAsync();
             var chart = CreateChart();
             Charts.Add(chart);
-            SaveData();
+            //SaveData();
 
             IsRunning = false;
 
@@ -233,6 +236,8 @@ namespace CotrollerDemo.ViewModels
 
             chart.BeginUpdate();
 
+            chart.AllowDrop = true;
+            chart.ViewXY.ZoomPanOptions.WheelZooming = WheelZooming.Off;
             chart.Title.Visible = false;
             chart.Title.Text = $"chart{_chartCount}";
             _chartCount++;
@@ -253,7 +258,7 @@ namespace CotrollerDemo.ViewModels
             view.XAxes[0].ScrollMode = XAxisScrollMode.Scrolling;
             view.XAxes[0].AllowUserInteraction = true;
             view.XAxes[0].AllowScrolling = false;
-            view.XAxes[0].SetRange(0, 1024);
+            view.XAxes[0].SetRange(0, 2048);
             view.XAxes[0].ValueType = AxisValueType.Number;
             view.XAxes[0].AutoFormatLabels = false;
             view.XAxes[0].LabelsNumberFormat = "N0";
@@ -455,8 +460,8 @@ namespace CotrollerDemo.ViewModels
                                 Interlocked.Add(ref PointNumbers[channelId], data.Data.Length);
                             }
 
-                            // 检查是否所有通道都达到了1024点
-                            bool allChannelsReady = PointNumbers.All(count => count >= 1024);
+                            // 检查是否所有通道都达到了2048点
+                            bool allChannelsReady = PointNumbers.All(count => count >= 2048);
                             if (!allChannelsReady)
                             {
                                 await Task.Delay(10);
@@ -469,13 +474,13 @@ namespace CotrollerDemo.ViewModels
                             {
                                 if (
                                     _dataBuffer.TryGetValue(i, out var buffer)
-                                    && buffer.Count >= 1024
+                                    && buffer.Count >= 2048
                                 )
                                 {
-                                    channelData[i] = [.. buffer.Take(1024)];
+                                    channelData[i] = [.. buffer.Take(2048)];
                                     // 移除已处理的数据
-                                    buffer.RemoveRange(0, 1024);
-                                    Interlocked.Add(ref PointNumbers[i], -1024);
+                                    buffer.RemoveRange(0, 2048);
+                                    Interlocked.Add(ref PointNumbers[i], -2048);
                                 }
                             }
 
@@ -545,7 +550,7 @@ namespace CotrollerDemo.ViewModels
                 chart.BeginUpdate();
                 //获取注释
                 var cursorValues = chart.ViewXY.Annotations;
-         
+
                 var targetYCoord = (float)chart.ViewXY.GetMarginsRect().Bottom - 20;
                 chart.ViewXY.YAxes[0].CoordToValue(targetYCoord, out var y);
 
@@ -559,6 +564,10 @@ namespace CotrollerDemo.ViewModels
 
                     int seriesNumber = 1;
 
+                    // 收集所有有效的Y值和对应的注释索引
+                    var validAnnotations = new List<(int Index, double YValue, string Text, string Title)>();
+
+                    // 第一步：收集所有有效的注释
                     foreach (var t in series)
                     {
                         var title = t.Title.Text.Split(':')[0];
@@ -568,24 +577,13 @@ namespace CotrollerDemo.ViewModels
                             && title.Length > 0
                         )
                         {
-                            var annotation = cursorValues[seriesNumber + cursorIndex];
-
-                            // 设置注释位置
-                            annotation.AxisValuesBoundaries.XMax =
-                                cursors[i].ValueAtXAxis
-                                + (
-                                    title.Length
-                                    + seriesYValue.ToString(CultureInfo.InvariantCulture).Length
-                                )
-                                    * 3
-                                    * Charts.Count;
-                            annotation.AxisValuesBoundaries.XMin = cursors[i].ValueAtXAxis + 10;
-                            annotation.AxisValuesBoundaries.YMax = seriesYValue + 0.25;
-                            annotation.AxisValuesBoundaries.YMin = seriesYValue - 0.25;
-
-                            // 设置注释内容
-                            annotation.Text = $"{title}: {Math.Round(seriesYValue, 2)}";
-                            annotation.Visible = true;
+                            // 保存注释信息
+                            validAnnotations.Add((
+                                seriesNumber + cursorIndex,
+                                seriesYValue,
+                                $"{title}: {Math.Round(seriesYValue, 2)}",
+                                title
+                            ));
 
                             // 更新曲线标题
                             t.Title.Text = $"{title}: {Math.Round(seriesYValue, 2)}";
@@ -611,6 +609,52 @@ namespace CotrollerDemo.ViewModels
                         seriesNumber++;
                     }
 
+                    // 第二步：按Y值排序注释
+                    validAnnotations.Sort((a, b) => a.YValue.CompareTo(b.YValue));
+
+                    // 第三步：分配注释位置，避免重叠
+                    const double minYSpacing = 0.6; // 注释之间的最小Y轴间距
+
+                    // 应用排序后的位置
+                    for (int j = 0; j < validAnnotations.Count; j++)
+                    {
+                        var annotation = cursorValues[validAnnotations[j].Index];
+                        var originalY = validAnnotations[j].YValue;
+
+                        // 调整Y位置以避免重叠
+                        double adjustedY = originalY;
+
+                        // 检查与前一个注释的间距
+                        if (j > 0)
+                        {
+                            var prevY = validAnnotations[j - 1].YValue;
+                            var prevYMax = cursorValues[validAnnotations[j - 1].Index].AxisValuesBoundaries.YMax;
+
+                            // 如果太接近前一个注释，调整位置
+                            if (originalY - prevY < minYSpacing)
+                            {
+                                adjustedY = prevYMax + 0.3; // 在前一个注释下方放置
+                            }
+                        }
+
+                        // 设置注释位置
+                        annotation.AxisValuesBoundaries.XMax =
+                            cursors[i].ValueAtXAxis
+                            + (
+                                validAnnotations[j].Title.Length
+                                + validAnnotations[j].YValue.ToString(CultureInfo.InvariantCulture).Length
+                            )
+                                * 3
+                                * Charts.Count;
+                        annotation.AxisValuesBoundaries.XMin = cursors[i].ValueAtXAxis + 10;
+                        annotation.AxisValuesBoundaries.YMax = adjustedY + 0.25;
+                        annotation.AxisValuesBoundaries.YMin = adjustedY - 0.25;
+
+                        // 设置注释内容
+                        annotation.Text = validAnnotations[j].Text;
+                        annotation.Visible = true;
+                    }
+
                     // 设置X轴注释位置和内容
                     cursorValues[cursorIndex].AxisValuesBoundaries.XMax =
                         cursors[i].ValueAtXAxis + 45 * Charts.Count;
@@ -628,6 +672,113 @@ namespace CotrollerDemo.ViewModels
             {
                 Debug.WriteLine($"更新光标结果时出错: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 清理资源
+        /// </summary>
+        private void CleanupResources()
+        {
+            // 清理数据缓冲区
+            foreach (var key in _dataBuffer.Keys.ToList())
+            {
+                if (_dataBuffer.TryRemove(key, out var buffer))
+                {
+                    buffer.Clear();
+                }
+            }
+
+            // 重置点数计数
+            for (int i = 0; i < PointNumbers.Length; i++)
+            {
+                PointNumbers[i] = 0;
+            }
+
+            // 清理文件数据队列
+            while (_fileData.TryDequeue(out _)) { }
+        }
+
+        /// <summary>
+        /// </summary>
+        /// 保存折线数据
+        private void SaveData()
+        {
+            // 启动新的保存数据任务
+            Task.Run(async () =>
+            {
+                try
+                {
+                    while (!source.IsCancellationRequested)
+                    {
+                        if (_fileData.TryDequeue(out var data) && data.Length > 0)
+                        {
+                            // 生成时间戳，确保同一批次的数据使用相同的时间戳
+                            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssff");
+
+                            // 创建一个字典，用于存储通道ID和对应的数据
+                            var channelData = new Dictionary<int, float[]>();
+
+                            // 将数据按通道ID存储
+                            for (int i = 0; i < data.Length; i++)
+                            {
+                                if (data[i] != null)
+                                {
+                                    channelData[i] = data[i];
+                                }
+                            }
+
+                            // 按照通道1-8的顺序保存文件
+                            for (int channelId = 0; channelId < _seriesCount; channelId++)
+                            {
+                                if (channelData.TryGetValue(channelId, out var channelValues))
+                                {
+                                    string fullPath = Path.Combine(
+                                        FolderPath,
+                                        $"{timestamp}_CH{channelId + 1}.txt"
+                                    );
+
+                                    // 使用异步文件流和流写入器
+                                    using var fs = new FileStream(
+                                        fullPath,
+                                        FileMode.Create,
+                                        FileAccess.Write,
+                                        FileShare.None,
+                                        4096,
+                                        FileOptions.Asynchronous
+                                    );
+                                    using var sw = new StreamWriter(fs);
+
+                                    // 创建一个待写入的字符串列表
+                                    var lines = channelValues
+                                        .Select((t, j) => $"{j}-{Convert.ToDouble(t)}")
+                                        .ToList();
+
+                                    // 填充列表
+
+                                    // 一次性写入所有数据（异步写入）
+                                    await sw.WriteAsync(string.Join(Environment.NewLine, lines));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // 如果没有数据，等待一段时间再检查
+                            await Task.Delay(100);
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    source.Cancel();
+                    // 任务被取消，正常退出
+                    Debug.WriteLine("SaveData task was cancelled");
+                }
+                catch (Exception ex)
+                {
+                    source.Cancel();
+                    Debug.WriteLine("发生错误: " + ex.Message);
+                }
+            });
         }
 
         #region 右键菜单
@@ -910,111 +1061,6 @@ namespace CotrollerDemo.ViewModels
         #endregion 右键菜单
 
         /// <summary>
-        /// 清理资源
-        /// </summary>
-        private void CleanupResources()
-        {
-            // 清理数据缓冲区
-            foreach (var key in _dataBuffer.Keys.ToList())
-            {
-                if (_dataBuffer.TryRemove(key, out var buffer))
-                {
-                    buffer.Clear();
-                }
-            }
-
-            // 重置点数计数
-            for (int i = 0; i < PointNumbers.Length; i++)
-            {
-                PointNumbers[i] = 0;
-            }
-
-            // 清理文件数据队列
-            while (_fileData.TryDequeue(out _)) { }
-        }
-
-        /// <summary>
-        /// </summary>
-        /// 保存折线数据
-        private void SaveData()
-        {
-            // 启动新的保存数据任务
-            Task.Run(async () =>
-            {
-                try
-                {
-                    while (true)
-                    {
-                        if (_fileData.TryDequeue(out var data) && data.Length > 0)
-                        {
-                            // 生成时间戳，确保同一批次的数据使用相同的时间戳
-                            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssff");
-
-                            // 创建一个字典，用于存储通道ID和对应的数据
-                            var channelData = new Dictionary<int, float[]>();
-
-                            // 将数据按通道ID存储
-                            for (int i = 0; i < data.Length; i++)
-                            {
-                                if (data[i] != null)
-                                {
-                                    channelData[i] = data[i];
-                                }
-                            }
-
-                            // 按照通道1-8的顺序保存文件
-                            for (int channelId = 0; channelId < _seriesCount; channelId++)
-                            {
-                                if (channelData.TryGetValue(channelId, out var channelValues))
-                                {
-                                    string fullPath = Path.Combine(
-                                        FolderPath,
-                                        $"{timestamp}_CH{channelId + 1}.txt"
-                                    );
-
-                                    // 使用异步文件流和流写入器
-                                    using var fs = new FileStream(
-                                        fullPath,
-                                        FileMode.Create,
-                                        FileAccess.Write,
-                                        FileShare.None,
-                                        4096,
-                                        FileOptions.Asynchronous
-                                    );
-                                    using var sw = new StreamWriter(fs);
-
-                                    // 创建一个待写入的字符串列表
-                                    var lines = channelValues
-                                        .Select((t, j) => $"{j}-{Convert.ToDouble(t)}")
-                                        .ToList();
-
-                                    // 填充列表
-
-                                    // 一次性写入所有数据（异步写入）
-                                    await sw.WriteAsync(string.Join(Environment.NewLine, lines));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // 如果没有数据，等待一段时间再检查
-                            await Task.Delay(100);
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // 任务被取消，正常退出
-                    Debug.WriteLine("SaveData task was cancelled");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine("发生错误: " + ex.Message);
-                }
-            });
-        }
-
-        /// <summary>
         /// 获取文件夹下的所有文件
         /// </summary>
         private void GetFolderFiles()
@@ -1032,6 +1078,62 @@ namespace CotrollerDemo.ViewModels
             {
                 FileNames.Add(Path.GetFileName(file));
             });
+        }
+
+        /// <summary>
+        /// 异步获取文件夹下的所有文件
+        /// </summary>
+        /// <returns>异步任务</returns>
+        private async Task GetFolderFilesAsync()
+        {
+            try
+            {
+                // 确保文件夹存在
+                if (!Directory.Exists(FolderPath))
+                {
+                    Directory.CreateDirectory(FolderPath);
+                }
+
+                // 使用Task.Run将耗时的文件操作放在后台线程执行
+                var fileNames = await Task.Run(() =>
+                {
+                    try
+                    {
+                        // 使用EnumerateFiles代替GetFiles，这样文件可以在被发现时立即处理
+                        // 而不需要等待整个列表构建完成
+                        return Directory.EnumerateFiles(FolderPath)
+                            .Select(Path.GetFileName)
+                            .ToList();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"枚举文件时出错: {ex.Message}");
+                        return new List<string>();
+                    }
+                });
+
+                // 在UI线程上批量更新集合
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    FileNames.Clear();
+
+                    // 使用批量添加来减少UI更新次数
+                    foreach (var fileName in fileNames)
+                    {
+                        FileNames.Add(fileName);
+                    }
+                }, DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"获取文件列表时出错: {ex.Message}");
+
+                // 确保UI线程上的错误处理
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    DXMessageBox.Show($"获取文件列表失败: {ex.Message}");
+                });
+            }
         }
 
         /// <summary>
@@ -1073,7 +1175,8 @@ namespace CotrollerDemo.ViewModels
             // 清理资源
             CleanupResources();
 
-            GetFolderFiles();
+            // 异步获取文件列表
+            await GetFolderFilesAsync();
         }
 
         /// <summary>
@@ -1199,7 +1302,7 @@ namespace CotrollerDemo.ViewModels
         /// <summary>
         /// 清空文件夹
         /// </summary>
-        private void ClearFolder()
+        private async void ClearFolder()
         {
             try
             {
@@ -1218,23 +1321,37 @@ namespace CotrollerDemo.ViewModels
                     // 获取文件夹中的所有文件
                     string[] files = Directory.GetFiles(FolderPath);
 
-                    // 删除每个文件
-                    foreach (string file in files)
+                    // 失败的文件列表
+                    var failedFiles = new ConcurrentBag<string>();
+
+                    // 并行删除所有文件，提高效率
+                    Parallel.ForEach(files, file =>
                     {
-                        File.Delete(file);
-                    }
+                        try
+                        {
+                            // 尝试删除文件，最多重试3次
+                            DeleteFileWithRetry(file, 3);
+                        }
+                        catch (Exception ex)
+                        {
+                            // 记录删除失败的文件
+                            failedFiles.Add(file);
+                            Debug.WriteLine($"无法删除文件 {file}: {ex.Message}");
+                        }
+                    });
 
-                    // 获取文件夹中的所有子文件夹
-                    string[] subFolders = Directory.GetDirectories(FolderPath);
+                    // 刷新文件列表
+                    await GetFolderFilesAsync();
 
-                    // 递归删除子文件夹及其内容
-                    foreach (string subFolder in subFolders)
+                    // 显示结果消息
+                    if (failedFiles.IsEmpty)
                     {
-                        Directory.Delete(subFolder, true); // true 表示递归删除
+                        DXMessageBox.Show("文件夹已清空！");
                     }
-
-                    GetFolderFiles();
-                    DXMessageBox.Show("文件夹已清空！");
+                    else
+                    {
+                        DXMessageBox.Show($"文件夹清理完成，但有 {failedFiles.Count} 个文件无法删除。");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1245,10 +1362,50 @@ namespace CotrollerDemo.ViewModels
         }
 
         /// <summary>
+        /// 尝试删除文件，失败时自动重试
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="maxRetries">最大重试次数</param>
+        private void DeleteFileWithRetry(string filePath, int maxRetries)
+        {
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                try
+                {
+                    // 确保文件没有只读属性
+                    if (File.Exists(filePath))
+                    {
+                        File.SetAttributes(filePath, FileAttributes.Normal);
+                        File.Delete(filePath);
+                    }
+                    return; // 删除成功，直接返回
+                }
+                catch (IOException)
+                {
+                    if (attempt == maxRetries - 1) // 最后一次尝试
+                        throw;
+
+                    // 文件可能被占用，等待一小段时间
+                    Thread.Sleep(100);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    if (attempt == maxRetries - 1) // 最后一次尝试
+                        throw;
+
+                    // 尝试强制GC回收，释放文件句柄
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Thread.Sleep(100);
+                }
+            }
+        }
+
+        /// <summary>
         /// 删除文件
         /// </summary>
         /// <param name="obj"></param>
-        private void DeleteFile(object obj)
+        private async void DeleteFile(object obj)
         {
             try
             {
@@ -1261,17 +1418,24 @@ namespace CotrollerDemo.ViewModels
                     if (obj is string fileName)
                     {
                         string file = Path.Combine(FolderPath, fileName);
-                        File.Delete(file);
+                        try
+                        {
+                            // 使用带重试的文件删除方法
+                            DeleteFileWithRetry(file, 3);
+                            await GetFolderFilesAsync();
+                            DXMessageBox.Show("文件已删除！");
+                        }
+                        catch (Exception ex)
+                        {
+                            DXMessageBox.Show($"无法删除文件: {ex.Message}");
+                        }
                     }
-
-                    GetFolderFiles();
-                    DXMessageBox.Show("文件已删除！");
                 }
             }
             catch (Exception ex)
             {
                 // 处理异常
-                DXMessageBox.Show("无法删除文件: " + ex.Message);
+                DXMessageBox.Show("操作过程中出错: " + ex.Message);
             }
         }
 
@@ -1292,32 +1456,39 @@ namespace CotrollerDemo.ViewModels
                 var canvas = new Canvas();
                 var chart = CreateChart();
 
+
+                foreach (var lightningChart in Charts)
+                {
+                    lightningChart.BeginUpdate();
+                }
+
                 // 初始化新图表的数据
                 if (IsRunning)
                 {
                     chart.BeginUpdate();
-                    try
+                    // 从_dataBuffer同步当前数据
+                    for (int i = 0; i < _seriesCount; i++)
                     {
-                        // 从_dataBuffer同步当前数据
-                        for (int i = 0; i < _seriesCount; i++)
+                        var series = chart.ViewXY.SampleDataSeries[i];
+                        if (_dataBuffer.TryGetValue(i, out var buffer) && buffer.Count >= 1024)
                         {
-                            var series = chart.ViewXY.SampleDataSeries[i];
-                            if (_dataBuffer.TryGetValue(i, out var buffer) && buffer.Count >= 1024)
-                            {
-                                var data = buffer.Take(1024).ToArray();
-                                series.SamplesSingle = data;
-                            }
+                            var data = buffer.Take(1024).ToArray();
+                            series.SamplesSingle = data;
                         }
-                        UpdateCursorResult(chart);
                     }
-                    finally
-                    {
-                        chart.EndUpdate();
-                    }
+                    chart.EndUpdate();
+                }
+
+                foreach (var lightningChart in Charts)
+                {
+                    lightningChart.EndUpdate();
                 }
 
                 // 添加到Charts集合要在数据初始化之后
                 Charts.Add(chart);
+
+
+                UpdateCursorResult(chart);
 
                 // 添加关闭事件处理
                 layPanel.CloseCommand = new DelegateCommand(() =>
