@@ -39,7 +39,6 @@ namespace CotrollerDemo.Models
         public List<List<float>> SineWaveList { get; set; } = []; // 正弦波数据
 
         private readonly CancellationTokenSource _cts;
-        private int _tempId = -1;
         private readonly object _dataLock = new object(); // 添加一个锁对象来同步数据处理
 
         public TcpClientModel()
@@ -76,7 +75,7 @@ namespace CotrollerDemo.Models
                     Tcp = new TcpListener(GlobalValues.GetIpAdders(), 9089);
                     Tcp.Start();
 
-                    while (!_cts.IsCancellationRequested)
+                    while (true)
                     {
                         Client = await Tcp.AcceptTcpClientAsync().ConfigureAwait(false);
 

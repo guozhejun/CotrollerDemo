@@ -21,6 +21,11 @@ namespace CotrollerDemo.Models
         /// </summary>
         public static bool IsRunning { get; set; } = false;
 
+        /// <summary>
+        /// UI更新计数器，用于控制更新优先级
+        /// </summary>
+        public static int UpdateCount { get; set; } = 0;
+
         public static ObservableCollection<DeviceInfoModel> Devices { get; set; } = [];
 
         /// <summary>
