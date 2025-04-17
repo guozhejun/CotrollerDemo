@@ -1,4 +1,5 @@
-﻿using CotrollerDemo.ViewModels;
+﻿using CotrollerDemo.Models;
+using CotrollerDemo.ViewModels;
 using CotrollerDemo.Views;
 using Prism.DryIoc;
 using Prism.Ioc;
@@ -25,6 +26,12 @@ namespace CotrollerDemo
         protected override void Initialize()
         {
             base.Initialize();
+
+            //var Db = SqlSugarModel.Db.CopyNew();
+
+            //Db.DbMaintenance.CreateDatabase();
+            //Db.CodeFirst.InitTables<ReceiveSql>();
+
 
             var shell = MainWindow;
             shell.Show();

@@ -1,4 +1,19 @@
-﻿using System;
+﻿using Arction.Wpf.Charting;
+using Arction.Wpf.Charting.Annotations;
+using Arction.Wpf.Charting.Axes;
+using Arction.Wpf.Charting.SeriesXY;
+using Arction.Wpf.Charting.Titles;
+using Arction.Wpf.Charting.Views.ViewXY;
+using CotrollerDemo.Models;
+using CotrollerDemo.Views;
+using DevExpress.Mvvm.Native;
+using DevExpress.Xpf.Core;
+using DevExpress.Xpf.Docking;
+using DryIoc.ImTools;
+using Prism.Commands;
+using Prism.Mvvm;
+using SqlSugar;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -13,21 +28,6 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Arction.Wpf.Charting;
-using Arction.Wpf.Charting.Annotations;
-using Arction.Wpf.Charting.Axes;
-using Arction.Wpf.Charting.SeriesXY;
-using Arction.Wpf.Charting.Titles;
-using Arction.Wpf.Charting.Views.ViewXY;
-using CotrollerDemo.Models;
-using CotrollerDemo.Views;
-using DevExpress.Mvvm.Native;
-using DevExpress.Xpf.Core;
-using DevExpress.Xpf.Docking;
-using DryIoc.ImTools;
-using Prism.Commands;
-using Prism.Mvvm;
-using static DevExpress.Data.Helpers.FindSearchRichParser;
 using Application = System.Windows.Application;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using TextEdit = DevExpress.Xpf.Editors.TextEdit;
@@ -49,6 +49,7 @@ namespace CotrollerDemo.ViewModels
             set => SetProperty(ref _fileNames, value);
         }
 
+
         private ObservableCollection<DeviceInfoModel> _devices = [];
 
         /// <summary>
@@ -61,6 +62,7 @@ namespace CotrollerDemo.ViewModels
         }
 
         //public LightningChart Chart = new();
+
 
         public List<LightningChart> Charts { get; set; } = [];
 
@@ -133,6 +135,8 @@ namespace CotrollerDemo.ViewModels
         public LineSeriesCursor Cursor { get; set; }
 
         public CancellationTokenSource source = new();
+
+        public SqlSugarClient Db = SqlSugarModel.Db.CopyNew();
         #endregion Property
 
         #region Command
@@ -196,15 +200,16 @@ namespace CotrollerDemo.ViewModels
 
         #region Main
 
-        public ControllerViewModel()
+        public ControllerViewModel(int cursorUpdateCounter)
         {
+            this.CursorUpdateCounter = cursorUpdateCounter;
             UpdateDeviceList();
             GlobalValues.TcpClient.StartTcpListen();
             // 使用异步方法并立即启动任务，但不等待结果
-            _ = GetFolderFilesAsync();
+            GetFolderFiles();
             var chart = CreateChart();
             Charts.Add(chart);
-            SaveData();
+            //SaveData();
 
             IsRunning = false;
 
@@ -410,7 +415,7 @@ namespace CotrollerDemo.ViewModels
             Devices = GlobalValues.Devices;
         }
 
-        public int cursorUpdateCounter;
+        public int CursorUpdateCounter;
         /// <summary>
         /// 更新曲线数据
         /// </summary>
@@ -456,7 +461,7 @@ namespace CotrollerDemo.ViewModels
                 }
 
                 // 检查是否所有通道都有有效数据，如果没有则跳过此次更新
-                if (!channelData.All(data => data != null))
+                if (channelData.Any(data => data == null))
                     return;
 
                 // 将处理好的数据加入到队列
@@ -488,7 +493,7 @@ namespace CotrollerDemo.ViewModels
 
                 // 单独处理光标更新，使用较低的频率
                 // 每10次数据更新才更新一次光标显示
-                if (Interlocked.Increment(ref cursorUpdateCounter) % 10 == 0)
+                if (Interlocked.Increment(ref CursorUpdateCounter) % 10 == 0)
                 {
                     try
                     {
@@ -533,7 +538,6 @@ namespace CotrollerDemo.ViewModels
             try
             {
                 chart.BeginUpdate();
-
                 //获取注释
                 var cursorValues = chart.ViewXY.Annotations;
 
@@ -647,7 +651,6 @@ namespace CotrollerDemo.ViewModels
                         $"X: {Math.Round(cursors[i].ValueAtXAxis, 2)}";
                 }
                 chart.EndUpdate();
-
             }
             catch (Exception ex)
             {
@@ -676,7 +679,7 @@ namespace CotrollerDemo.ViewModels
             }
 
             // 重置光标更新计数器
-            cursorUpdateCounter = 0;
+            CursorUpdateCounter = 0;
 
             // 清理文件数据队列
             while (_fileData.TryDequeue(out _)) { }
@@ -694,7 +697,6 @@ namespace CotrollerDemo.ViewModels
         /// 保存折线数据
         private void SaveData()
         {
-            // 启动新的保存数据任务
             Task.Run(async () =>
             {
                 try
@@ -703,71 +705,51 @@ namespace CotrollerDemo.ViewModels
                     {
                         if (_fileData.TryDequeue(out var data) && data.Length > 0)
                         {
-                            // 生成时间戳，确保同一批次的数据使用相同的时间戳
-                            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssff");
+                            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
 
-                            // 创建一个字典，用于存储通道ID和对应的数据
-                            var channelData = new Dictionary<int, float[]>();
-
-                            // 将数据按通道ID存储
-                            for (int i = 0; i < data.Length; i++)
-                            {
-                                if (data[i] != null)
-                                {
-                                    channelData[i] = data[i];
-                                }
-                            }
-
-                            // 按照通道1-8的顺序保存文件
                             for (int channelId = 0; channelId < _seriesCount; channelId++)
                             {
-                                if (channelData.TryGetValue(channelId, out var channelValues))
+                                if (data[channelId] != null)
                                 {
                                     string fullPath = Path.Combine(
                                         FolderPath,
                                         $"{timestamp}_CH{channelId + 1}.txt"
                                     );
 
-                                    // 使用异步文件流和流写入器
-                                    using var fs = new FileStream(
+                                    // 使用FileShare.ReadWrite模式允许其他进程读取
+                                    await using var fs = new FileStream(
                                         fullPath,
                                         FileMode.Create,
                                         FileAccess.Write,
-                                        FileShare.None,
+                                        FileShare.ReadWrite,  // 修改这里
                                         4096,
                                         FileOptions.Asynchronous
                                     );
-                                    using var sw = new StreamWriter(fs);
 
-                                    // 创建一个待写入的字符串列表
-                                    var lines = channelValues
-                                        .Select((t, j) => $"{j}-{Convert.ToDouble(t)}")
-                                        .ToList();
-
-                                    // 填充列表
-
-                                    // 一次性写入所有数据（异步写入）
-                                    await sw.WriteAsync(string.Join(Environment.NewLine, lines));
+                                    // 使用using确保资源释放
+                                    using (var sw = new StreamWriter(fs))
+                                    {
+                                        var lines = data[channelId]
+                                            .Select((t, j) => $"{j}-{Convert.ToDouble(t)}")
+                                            .ToList();
+                                        await sw.WriteAsync(string.Join(Environment.NewLine, lines));
+                                    }
                                 }
                             }
                         }
                         else
                         {
-                            // 如果没有数据，等待一段时间再检查
                             await Task.Delay(100);
                         }
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    source.Cancel();
-                    // 任务被取消，正常退出
                     Debug.WriteLine("SaveData task was cancelled");
                 }
                 catch (Exception ex)
                 {
-                    source.Cancel();
-                    Debug.WriteLine("发生错误: " + ex.Message);
+                    Debug.WriteLine($"保存数据时出错: {ex.Message}");
                 }
             });
         }
@@ -1051,31 +1033,12 @@ namespace CotrollerDemo.ViewModels
 
         #endregion 右键菜单
 
-        /// <summary>
-        /// 获取文件夹下的所有文件
-        /// </summary>
-        private void GetFolderFiles()
-        {
-            if (!Directory.Exists(FolderPath))
-            {
-                Directory.CreateDirectory(FolderPath);
-            }
-
-            FileNames.Clear();
-
-            string[] files = Directory.GetFiles(FolderPath);
-
-            files.ForEach(file =>
-            {
-                FileNames.Add(Path.GetFileName(file));
-            });
-        }
 
         /// <summary>
         /// 异步获取文件夹下的所有文件
         /// </summary>
         /// <returns>异步任务</returns>
-        private async Task GetFolderFilesAsync()
+        private void GetFolderFiles()
         {
             try
             {
@@ -1085,49 +1048,23 @@ namespace CotrollerDemo.ViewModels
                     Directory.CreateDirectory(FolderPath);
                 }
 
-                // 使用Task.Run将耗时的文件操作放在后台线程执行
-                var fileNames = await Task.Run(() =>
+                // 使用EnumerateFiles代替GetFiles，这样文件可以在被发现时立即处理
+                // 而不需要等待整个列表构建完成
+                List<string> fileNames = [.. Directory.EnumerateFiles(FolderPath).Select(Path.GetFileName)];
+
+                if (fileNames.Count > 0)
                 {
-                    try
-                    {
-                        // 使用EnumerateFiles代替GetFiles，这样文件可以在被发现时立即处理
-                        // 而不需要等待整个列表构建完成
-                        return Directory
-                            .EnumerateFiles(FolderPath)
-                            .Select(Path.GetFileName)
-                            .ToList();
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"枚举文件时出错: {ex.Message}");
-                        return new List<string>();
-                    }
-                });
+                    FileNames.AddRange(fileNames);
+                }
+                else
+                {
+                    FileNames = [];
+                }
 
-                // 在UI线程上批量更新集合
-                await Application.Current.Dispatcher.InvokeAsync(
-                    () =>
-                    {
-                        FileNames.Clear();
-
-                        // 使用批量添加来减少UI更新次数
-                        foreach (var fileName in fileNames)
-                        {
-                            FileNames.Add(fileName);
-                        }
-                    },
-                    DispatcherPriority.Background
-                );
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"获取文件列表时出错: {ex.Message}");
-
-                // 确保UI线程上的错误处理
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    DXMessageBox.Show($"获取文件列表失败: {ex.Message}");
-                });
             }
         }
 
@@ -1144,7 +1081,7 @@ namespace CotrollerDemo.ViewModels
             IsRunning = true; // 更新运行状态
 
             // 启动数据保存任务
-            //SaveData();
+            SaveData();
 
             // 添加渲染事件处理
             CompositionTarget.Rendering += CompositionTarget_Rendering;
@@ -1178,7 +1115,7 @@ namespace CotrollerDemo.ViewModels
             CleanupResources();
 
             // 异步获取文件列表
-            await GetFolderFilesAsync();
+            GetFolderFiles();
         }
 
         /// <summary>
@@ -1197,7 +1134,7 @@ namespace CotrollerDemo.ViewModels
               await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     UpdateCursorResult(chart);
-                },DispatcherPriority.Background)
+                }, DispatcherPriority.Background)
             );
         }
 
@@ -1208,11 +1145,7 @@ namespace CotrollerDemo.ViewModels
         /// <param name="xValue"></param>
         /// <param name="yValue"></param>
         /// <returns></returns>
-        private static bool SolveValueAccurate(
-            SampleDataSeries series,
-            double xValue,
-            out double yValue
-        )
+        private static bool SolveValueAccurate(SampleDataSeries series, double xValue, out double yValue)
         {
             yValue = 0;
 
@@ -1312,13 +1245,9 @@ namespace CotrollerDemo.ViewModels
         {
             try
             {
-                if (
-                    (DialogResult)
-                        DXMessageBox.Show("是否清空文件夹?", "提示", MessageBoxButton.YesNo)
-                    == DialogResult.Yes
-                )
+                if ((DialogResult)DXMessageBox.Show("是否清空文件夹?", "提示", MessageBoxButton.YesNo) == DialogResult.Yes)
                 {
-                    // 清空文件夹中的所有文件
+                    // 确保文件夹存在
                     if (!Directory.Exists(FolderPath))
                     {
                         throw new DirectoryNotFoundException($"文件夹不存在: {FolderPath}");
@@ -1326,14 +1255,24 @@ namespace CotrollerDemo.ViewModels
 
                     // 获取文件夹中的所有文件
                     string[] files = Directory.GetFiles(FolderPath);
+                    if (files.Length == 0)
+                    {
+                        FileNames = [];
+                        return;
+                    }
 
                     // 失败的文件列表
                     var failedFiles = new ConcurrentBag<string>();
 
-                    // 并行删除所有文件，提高效率
-                    Parallel.ForEach(
-                        files,
-                        file =>
+                    // 使用并行处理删除文件
+                    var options = new ParallelOptions()
+                    {
+                        MaxDegreeOfParallelism = Environment.ProcessorCount // 根据CPU核心数调整并行度
+                    };
+
+                    await Task.Run(() =>
+                    {
+                        Parallel.ForEach(files, options, file =>
                         {
                             try
                             {
@@ -1342,33 +1281,19 @@ namespace CotrollerDemo.ViewModels
                             }
                             catch (Exception ex)
                             {
-                                // 记录删除失败的文件
                                 failedFiles.Add(file);
                                 Debug.WriteLine($"无法删除文件 {file}: {ex.Message}");
                             }
-                        }
-                    );
+                        });
+                    });
 
                     // 刷新文件列表
-                    await GetFolderFilesAsync();
-
-                    // 显示结果消息
-                    if (failedFiles.IsEmpty)
-                    {
-                        DXMessageBox.Show("文件夹已清空！");
-                    }
-                    else
-                    {
-                        DXMessageBox.Show(
-                            $"文件夹清理完成，但有 {failedFiles.Count} 个文件无法删除。"
-                        );
-                    }
+                    GetFolderFiles();
                 }
             }
             catch (Exception ex)
             {
-                // 处理异常
-                DXMessageBox.Show("无法清空文件夹: " + ex.Message);
+                DXMessageBox.Show("清空文件夹时出错: " + ex.Message);
             }
         }
 
@@ -1403,7 +1328,6 @@ namespace CotrollerDemo.ViewModels
                 {
                     if (attempt == maxRetries - 1) // 最后一次尝试
                         throw;
-
                     // 尝试强制GC回收，释放文件句柄
                     GC.Collect();
                     GC.WaitForPendingFinalizers();
@@ -1416,7 +1340,7 @@ namespace CotrollerDemo.ViewModels
         /// 删除文件
         /// </summary>
         /// <param name="obj"></param>
-        private async void DeleteFile(object obj)
+        private void DeleteFile(object obj)
         {
             try
             {
@@ -1433,7 +1357,7 @@ namespace CotrollerDemo.ViewModels
                         {
                             // 使用带重试的文件删除方法
                             DeleteFileWithRetry(file, 3);
-                            await GetFolderFilesAsync();
+                            GetFolderFiles();
                             DXMessageBox.Show("文件已删除！");
                         }
                         catch (Exception ex)
@@ -1467,11 +1391,6 @@ namespace CotrollerDemo.ViewModels
                 var canvas = new Canvas();
                 var chart = CreateChart();
 
-                foreach (var lightningChart in Charts)
-                {
-                    lightningChart.BeginUpdate();
-                }
-
                 // 初始化新图表的数据
                 if (IsRunning)
                 {
@@ -1488,12 +1407,6 @@ namespace CotrollerDemo.ViewModels
                     }
                     chart.EndUpdate();
                 }
-
-                foreach (var lightningChart in Charts)
-                {
-                    lightningChart.EndUpdate();
-                }
-
                 // 添加到Charts集合要在数据初始化之后
                 Charts.Add(chart);
 
@@ -1512,18 +1425,13 @@ namespace CotrollerDemo.ViewModels
                     layPanel.Closed = true;
                 });
 
-                layPanel.ContextMenuCustomizations.AddRange(
-                    _layoutGroup.Items[0].ContextMenuCustomizations
-                );
+                layPanel.ContextMenuCustomizations.AddRange(_layoutGroup.Items[0].ContextMenuCustomizations);
                 layPanel.AllowDrop = true;
                 layPanel.Drop += (o, e) =>
                 {
                     if (e.Data.GetDataPresent(System.Windows.DataFormats.StringFormat))
                     {
-                        if (
-                            e.Data.GetData(System.Windows.DataFormats.StringFormat)
-                            is string fileData
-                        )
+                        if (e.Data.GetData(System.Windows.DataFormats.StringFormat) is string fileData)
                         {
                             string filePath = Path.Combine("D:\\Datas", fileData);
 

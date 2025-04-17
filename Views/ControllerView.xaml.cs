@@ -144,11 +144,7 @@ namespace CotrollerDemo.Views
                             // 使用Text格式而不是StringFormat，避免格式转换问题
                             lock (this)
                             {
-                                DragDrop.DoDragDrop(
-                                    listBoxEdit,
-                                    listBoxEdit.SelectedItem.ToString(),
-                                    DragDropEffects.Link
-                                );
+                                DragDrop.DoDragDrop(listBoxEdit, listBoxEdit.SelectedItem.ToString(), DragDropEffects.Link);
                             }
                         });
                     });

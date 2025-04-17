@@ -13,6 +13,7 @@
     <PackageReference Include="devexpress.wpf.grid.core" Version="24.2.5" />
     <PackageReference Include="devexpress.wpf.layoutcontrol" Version="24.2.5" />
     <PackageReference Include="Prism.DryIoc" Version="9.0.537" />
+    <PackageReference Include="SqlSugarCore" Version="5.1.4.188" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Arction.Wpf.Charting.LightningChart">
